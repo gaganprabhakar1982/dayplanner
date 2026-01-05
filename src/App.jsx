@@ -94,7 +94,6 @@ const getNextDay = (dateStr) => {
   return dateToStr(date);
 };
 
-// Sort tasks: pending first, then done
 const sortTasks = (tasks) => {
   return [...tasks].sort((a, b) => {
     if (a.status === 'Done' && b.status !== 'Done') return 1;
@@ -107,7 +106,23 @@ const sortTasks = (tasks) => {
 // COMPONENTS
 // ============================================
 
-// Login Screen - Improved UI
+// Branded Loading Screen
+const LoadingScreen = () => (
+  <div className="loading-screen">
+    <div className="loading-content">
+      <div className="loading-logo">
+        <svg viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="#10B981"/>
+          <path d="M14 24L21 31L34 18" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <div className="loading-spinner"></div>
+      <p>Loading your tasks...</p>
+    </div>
+  </div>
+);
+
+// Login Screen
 const LoginScreen = ({ onLogin }) => (
   <div className="login-screen">
     <div className="login-bg">
@@ -177,24 +192,23 @@ const ProgressSummary = ({ workDone, workTotal, personalDone, personalTotal }) =
   );
 };
 
-// Swipeable Task Item
-const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelected, onSelect }) => {
+// Task Item - Now with Selection Mode support
+const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelected, onSelect }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [startX, setStartX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const taskRef = useRef(null);
   const isDone = task.status === 'Done';
   
   const handleTouchStart = (e) => {
+    if (isSelectionMode) return;
     setStartX(e.touches[0].clientX);
     setIsSwiping(true);
   };
   
   const handleTouchMove = (e) => {
-    if (!isSwiping) return;
+    if (!isSwiping || isSelectionMode) return;
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX;
-    // Only allow left swipe (negative values), limit to -140px
     if (diff < 0) {
       setSwipeX(Math.max(diff, -140));
     } else {
@@ -204,7 +218,6 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelected, onSelect }) =>
   
   const handleTouchEnd = () => {
     setIsSwiping(false);
-    // Snap to open or closed position
     if (swipeX < -70) {
       setSwipeX(-140);
     } else {
@@ -212,16 +225,17 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelected, onSelect }) =>
     }
   };
   
-  const closeSwipe = () => {
-    setSwipeX(0);
+  const closeSwipe = () => setSwipeX(0);
+  
+  const handleTaskClick = () => {
+    if (isSelectionMode && !isDone) {
+      onSelect(task.id);
+    }
   };
   
   return (
     <div className={`task-wrapper ${isSelected ? 'selected' : ''}`}>
-      <div 
-        className="task-actions"
-        style={{ opacity: Math.min(1, Math.abs(swipeX) / 70) }}
-      >
+      <div className="task-actions" style={{ opacity: Math.min(1, Math.abs(swipeX) / 70) }}>
         <button className="action-btn edit" onClick={() => { closeSwipe(); onEdit(task); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -238,43 +252,60 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelected, onSelect }) =>
         </button>
       </div>
       <div 
-        ref={taskRef}
-        className={`task-item ${isDone ? 'done' : ''} ${task.category.toLowerCase()}`}
+        className={`task-item ${isDone ? 'done' : ''} ${task.category.toLowerCase()} ${isSelectionMode && !isDone ? 'selectable' : ''}`}
         style={{ transform: `translateX(${swipeX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={handleTaskClick}
       >
-        <button 
-          className={`checkbox ${isDone ? 'checked' : ''}`}
-          onClick={() => onToggle(task.id, task.status)}
-        >
-          {isDone && (
+        {!isSelectionMode && (
+          <button 
+            className={`checkbox ${isDone ? 'checked' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onToggle(task.id, task.status); }}
+          >
+            {isDone && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </button>
+        )}
+        {isSelectionMode && !isDone && (
+          <div className={`select-circle ${isSelected ? 'selected' : ''}`}>
+            {isSelected && <span>✓</span>}
+          </div>
+        )}
+        {isSelectionMode && isDone && (
+          <div className="checkbox checked disabled">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-          )}
-        </button>
+          </div>
+        )}
         <div className="task-content">
           <span className="task-name">{task.task}</span>
           <div className="task-meta">
             <span className={`category-dot ${task.category.toLowerCase()}`}></span>
             <span className="time-badge">{formatTime(task.timeRequired)}</span>
-            {task.repeat && task.repeat !== 'none' && (
-              <span className="repeat-badge">🔁</span>
-            )}
+            {task.repeat && task.repeat !== 'none' && <span className="repeat-badge">🔁</span>}
           </div>
         </div>
-        <button 
-          className={`select-btn ${isSelected ? 'selected' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-        >
-          {isSelected ? '✓' : ''}
-        </button>
       </div>
     </div>
   );
 };
+
+// Selection Mode Header
+const SelectionHeader = ({ selectedCount, onCancel, onMove }) => (
+  <div className="selection-header">
+    <button className="cancel-btn" onClick={onCancel}>Cancel</button>
+    <span className="selection-count">{selectedCount} selected</span>
+    <button className="move-btn" onClick={onMove} disabled={selectedCount === 0}>
+      Move →
+    </button>
+  </div>
+);
 
 // Add/Edit Task Modal
 const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
@@ -288,7 +319,6 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
   });
   
   const timePresets = [15, 30, 60, 90, 120];
-  
   const repeatOptions = [
     { value: 'none', label: 'No repeat' },
     { value: 'daily', label: 'Daily' },
@@ -401,15 +431,15 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
   );
 };
 
-// Shift Tasks Modal
-const ShiftModal = ({ onClose, onShift, selectedCount, targetDate }) => {
-  const [shiftDate, setShiftDate] = useState(getNextDay(targetDate));
+// Move Tasks Modal
+const MoveModal = ({ onClose, onMove, selectedCount, targetDate }) => {
+  const [moveDate, setMoveDate] = useState(getNextDay(targetDate));
   
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content shift-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal-content move-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Shift Tasks</h2>
+          <h2>Move Tasks</h2>
           <button className="close-btn" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -418,42 +448,45 @@ const ShiftModal = ({ onClose, onShift, selectedCount, targetDate }) => {
           </button>
         </div>
         
-        <p className="shift-info">
-          {selectedCount > 0 
-            ? `Move ${selectedCount} selected task${selectedCount > 1 ? 's' : ''} to:`
-            : 'Move all incomplete tasks to:'}
-        </p>
+        <p className="move-info">Move {selectedCount} task{selectedCount > 1 ? 's' : ''} to:</p>
         
-        <div className="form-group">
-          <input
-            type="date"
-            value={shiftDate}
-            onChange={e => setShiftDate(e.target.value)}
-          />
-        </div>
-        
-        <div className="shift-buttons">
-          <button className="quick-shift-btn" onClick={() => setShiftDate(getNextDay(targetDate))}>
+        <div className="quick-dates">
+          <button 
+            className={`quick-date-btn ${moveDate === getNextDay(targetDate) ? 'active' : ''}`}
+            onClick={() => setMoveDate(getNextDay(targetDate))}
+          >
             Tomorrow
           </button>
-          <button className="quick-shift-btn" onClick={() => {
-            const d = parseLocalDate(targetDate);
-            d.setDate(d.getDate() + 7);
-            setShiftDate(dateToStr(d));
-          }}>
+          <button 
+            className={`quick-date-btn`}
+            onClick={() => {
+              const d = parseLocalDate(targetDate);
+              d.setDate(d.getDate() + 7);
+              setMoveDate(dateToStr(d));
+            }}
+          >
             Next Week
           </button>
         </div>
         
-        <button className="save-btn" onClick={() => onShift(shiftDate)}>
-          Shift Tasks
+        <div className="form-group">
+          <label>Or pick a date</label>
+          <input
+            type="date"
+            value={moveDate}
+            onChange={e => setMoveDate(e.target.value)}
+          />
+        </div>
+        
+        <button className="save-btn" onClick={() => onMove(moveDate)}>
+          Move Tasks
         </button>
       </div>
     </div>
   );
 };
 
-// Settings/Export Modal
+// Settings Modal
 const SettingsModal = ({ onClose, tasks, user, onSignOut }) => {
   const [exportStatus, setExportStatus] = useState('');
   
@@ -486,11 +519,10 @@ const SettingsModal = ({ onClose, tasks, user, onSignOut }) => {
         `${t.date}\t${t.task}\t${t.category}\t${t.timeRequired}\t${t.status}`
       );
       const tsvData = [headers, ...rows].join('\n');
-      
       await navigator.clipboard.writeText(tsvData);
-      setExportStatus('✅ Copied! Open Google Sheets → Ctrl+V to paste');
+      setExportStatus('✅ Copied! Open Google Sheets → Ctrl+V');
     } catch (err) {
-      setExportStatus('❌ Failed to copy. Try CSV download instead.');
+      setExportStatus('❌ Failed to copy. Try CSV instead.');
     }
   };
   
@@ -522,27 +554,22 @@ const SettingsModal = ({ onClose, tasks, user, onSignOut }) => {
         <div className="settings-section">
           <h3>Export Data</h3>
           <p className="section-desc">Backup your {tasks.length} tasks</p>
-          
           <button className="export-btn" onClick={exportToSheets}>
             <span>📊</span> Copy for Google Sheets
           </button>
-          
           <button className="export-btn" onClick={exportToCSV}>
             <span>📄</span> Download CSV
           </button>
-          
           {exportStatus && <p className="export-status">{exportStatus}</p>}
         </div>
         
-        <button className="signout-btn" onClick={onSignOut}>
-          Sign Out
-        </button>
+        <button className="signout-btn" onClick={onSignOut}>Sign Out</button>
       </div>
     </div>
   );
 };
 
-// Calendar View
+// Calendar View - Fixed arrows
 const CalendarView = ({ tasks, onDateSelect, selectedDate }) => {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = parseLocalDate(selectedDate);
@@ -556,12 +583,8 @@ const CalendarView = ({ tasks, onDateSelect, selectedDate }) => {
     const lastDay = new Date(year, month + 1, 0);
     const days = [];
     
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      days.push(null);
-    }
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-      days.push(new Date(year, month, d));
-    }
+    for (let i = 0; i < firstDay.getDay(); i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(year, month, d));
     return days;
   };
   
@@ -578,18 +601,21 @@ const CalendarView = ({ tasks, onDateSelect, selectedDate }) => {
     };
   };
   
+  const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  
   return (
     <div className="calendar-view">
       <div className="calendar-nav">
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="nav-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="15 18 9 12 15 6" />
+        <button onClick={prevMonth} className="cal-nav-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
         <h2>{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="nav-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="9 18 15 12 9 6" />
+        <button onClick={nextMonth} className="cal-nav-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 18L15 12L9 6" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       </div>
@@ -646,11 +672,9 @@ const AnalyticsView = ({ tasks }) => {
   });
   
   const maxTime = Math.max(...weeklyData.map(d => d.total), 60);
-  
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.status === 'Done').length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  
   const totalWork = weeklyData.reduce((s, d) => s + d.workDone, 0);
   const totalPersonal = weeklyData.reduce((s, d) => s + d.personalDone, 0);
   
@@ -708,9 +732,10 @@ export default function DayPlannerApp() {
   const [activeTab, setActiveTab] = useState('today');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState([]);
   
   useEffect(() => {
@@ -724,19 +749,11 @@ export default function DayPlannerApp() {
   useEffect(() => {
     if (!user) return;
     
-    const q = query(
-      collection(db, 'users', user.uid, 'tasks'),
-      orderBy('date', 'desc')
-    );
-    
+    const q = query(collection(db, 'users', user.uid, 'tasks'), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tasksData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const tasksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTasks(tasksData);
     });
-    
     return unsubscribe;
   }, [user]);
   
@@ -787,9 +804,7 @@ export default function DayPlannerApp() {
       
       for (const date of dates) {
         await addDoc(collection(db, 'users', user.uid, 'tasks'), {
-          ...taskData,
-          date,
-          createdAt: new Date().toISOString()
+          ...taskData, date, createdAt: new Date().toISOString()
         });
       }
     }
@@ -810,62 +825,54 @@ export default function DayPlannerApp() {
   
   const handleSelectTask = (taskId) => {
     setSelectedTasks(prev => 
-      prev.includes(taskId) 
-        ? prev.filter(id => id !== taskId)
-        : [...prev, taskId]
+      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
     );
   };
   
-  const handleShift = async (newDate) => {
-    const currentDateTasks = activeTab === 'today' 
-      ? tasks.filter(t => t.date === getTodayStr())
-      : tasks.filter(t => t.date === selectedDate);
-    
-    const tasksToShift = selectedTasks.length > 0
-      ? currentDateTasks.filter(t => selectedTasks.includes(t.id) && t.status !== 'Done')
-      : currentDateTasks.filter(t => t.status !== 'Done');
-    
+  const enterSelectionMode = () => {
+    setIsSelectionMode(true);
+    setSelectedTasks([]);
+  };
+  
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedTasks([]);
+  };
+  
+  const handleMove = async (newDate) => {
     const batch = writeBatch(db);
     
-    for (const task of tasksToShift) {
-      const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+    for (const taskId of selectedTasks) {
+      const taskRef = doc(db, 'users', user.uid, 'tasks', taskId);
       batch.update(taskRef, { date: newDate });
     }
     
     await batch.commit();
-    setSelectedTasks([]);
-    setShowShiftModal(false);
+    setShowMoveModal(false);
+    exitSelectionMode();
   };
   
   const navigateDate = (direction) => {
     const current = parseLocalDate(selectedDate);
     current.setDate(current.getDate() + direction);
     setSelectedDate(dateToStr(current));
-    setSelectedTasks([]);
   };
   
   const today = getTodayStr();
-  const todayTasks = sortTasks(tasks.filter(t => t.date === today));
-  const selectedDateTasks = sortTasks(tasks.filter(t => t.date === selectedDate));
+  const currentDateTasks = activeTab === 'today' 
+    ? sortTasks(tasks.filter(t => t.date === today))
+    : sortTasks(tasks.filter(t => t.date === selectedDate));
   
-  const workTasks = todayTasks.filter(t => t.category === 'Work');
-  const personalTasks = todayTasks.filter(t => t.category === 'Personal');
+  const workTasks = currentDateTasks.filter(t => t.category === 'Work');
+  const personalTasks = currentDateTasks.filter(t => t.category === 'Personal');
   const workDone = workTasks.filter(t => t.status === 'Done').reduce((s, t) => s + t.timeRequired, 0);
   const workTotal = workTasks.reduce((s, t) => s + t.timeRequired, 0);
   const personalDone = personalTasks.filter(t => t.status === 'Done').reduce((s, t) => s + t.timeRequired, 0);
   const personalTotal = personalTasks.reduce((s, t) => s + t.timeRequired, 0);
+  const pendingCount = currentDateTasks.filter(t => t.status !== 'Done').length;
   
-  const pendingCount = activeTab === 'today' 
-    ? todayTasks.filter(t => t.status !== 'Done').length
-    : selectedDateTasks.filter(t => t.status !== 'Done').length;
-  
-  if (loading) {
-    return <div className="loading"><div className="spinner"></div></div>;
-  }
-  
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  if (loading) return <LoadingScreen />;
+  if (!user) return <LoginScreen onLogin={handleLogin} />;
   
   return (
     <>
@@ -887,6 +894,8 @@ export default function DayPlannerApp() {
           --border: #E4E4E7;
           --danger: #EF4444;
           --danger-light: #FEE2E2;
+          --blue: #3B82F6;
+          --blue-light: #DBEAFE;
           --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
           --shadow: 0 4px 12px rgba(0,0,0,0.06);
           --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
@@ -921,31 +930,50 @@ export default function DayPlannerApp() {
           position: relative;
         }
         
-        /* Loading */
-        .loading {
+        /* Loading Screen */
+        .loading-screen {
           width: 100%;
+          height: 100vh;
+          height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
-          height: 100vh;
-          height: 100dvh;
           background: var(--bg);
         }
         
-        .spinner {
+        .loading-content {
+          text-align: center;
+        }
+        
+        .loading-logo {
+          margin-bottom: 24px;
+        }
+        
+        .loading-logo svg {
+          width: 64px;
+          height: 64px;
+        }
+        
+        .loading-spinner {
           width: 32px;
           height: 32px;
           border: 3px solid var(--border);
           border-top-color: var(--personal);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
+          margin: 0 auto 16px;
+        }
+        
+        .loading-content p {
+          color: var(--muted);
+          font-size: 14px;
         }
         
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
         
-        /* Login Screen - Improved */
+        /* Login Screen */
         .login-screen {
           width: 100%;
           min-height: 100vh;
@@ -961,10 +989,7 @@ export default function DayPlannerApp() {
         
         .login-bg {
           position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 0; left: 0; right: 0; bottom: 0;
           overflow: hidden;
         }
         
@@ -975,26 +1000,9 @@ export default function DayPlannerApp() {
           background: white;
         }
         
-        .shape-1 {
-          width: 300px;
-          height: 300px;
-          top: -100px;
-          right: -100px;
-        }
-        
-        .shape-2 {
-          width: 200px;
-          height: 200px;
-          bottom: 20%;
-          left: -80px;
-        }
-        
-        .shape-3 {
-          width: 150px;
-          height: 150px;
-          bottom: -50px;
-          right: 20%;
-        }
+        .shape-1 { width: 300px; height: 300px; top: -100px; right: -100px; }
+        .shape-2 { width: 200px; height: 200px; bottom: 20%; left: -80px; }
+        .shape-3 { width: 150px; height: 150px; bottom: -50px; right: 20%; }
         
         .login-content {
           text-align: center;
@@ -1005,28 +1013,10 @@ export default function DayPlannerApp() {
           z-index: 1;
         }
         
-        .login-logo {
-          margin-bottom: 24px;
-        }
-        
-        .login-logo svg {
-          width: 72px;
-          height: 72px;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
-        }
-        
-        .login-content h1 { 
-          font-size: 32px; 
-          font-weight: 700; 
-          margin-bottom: 8px; 
-          letter-spacing: -0.5px;
-        }
-        
-        .login-content > p { 
-          color: rgba(255,255,255,0.8); 
-          margin-bottom: 32px; 
-          font-size: 16px;
-        }
+        .login-logo { margin-bottom: 24px; }
+        .login-logo svg { width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2)); }
+        .login-content h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+        .login-content > p { color: rgba(255,255,255,0.8); margin-bottom: 32px; font-size: 16px; }
         
         .login-features {
           text-align: left;
@@ -1072,18 +1062,9 @@ export default function DayPlannerApp() {
           font-weight: 600;
           cursor: pointer;
           box-shadow: var(--shadow-lg);
-          transition: transform 0.2s;
         }
         
-        .google-btn:active {
-          transform: scale(0.98);
-        }
-        
-        .login-footer {
-          margin-top: 24px;
-          font-size: 12px;
-          color: rgba(255,255,255,0.6);
-        }
+        .login-footer { margin-top: 24px; font-size: 12px; color: rgba(255,255,255,0.6); }
         
         /* Header */
         .header {
@@ -1098,24 +1079,8 @@ export default function DayPlannerApp() {
           border-bottom: 1px solid var(--border);
         }
         
-        .header-left h1 {
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: -0.5px;
-          color: var(--text);
-        }
-        
-        .header-left span {
-          font-size: 13px;
-          color: var(--muted);
-          margin-top: 2px;
-          display: block;
-        }
-        
-        .header-right {
-          display: flex;
-          gap: 8px;
-        }
+        .header-left h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+        .header-left span { font-size: 13px; color: var(--muted); margin-top: 2px; display: block; }
         
         .icon-btn {
           width: 40px;
@@ -1129,11 +1094,48 @@ export default function DayPlannerApp() {
           align-items: center;
           justify-content: center;
           font-size: 18px;
-          transition: background 0.2s;
         }
         
-        .icon-btn:active {
-          background: var(--border);
+        /* Selection Mode Header */
+        .selection-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 20px;
+          background: var(--blue-light);
+          border-bottom: 1px solid var(--blue);
+        }
+        
+        .cancel-btn {
+          padding: 8px 16px;
+          background: transparent;
+          border: none;
+          color: var(--blue);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        
+        .selection-count {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text);
+        }
+        
+        .move-btn {
+          padding: 8px 16px;
+          background: var(--blue);
+          border: none;
+          border-radius: 8px;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        
+        .move-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
         
         /* FAB */
@@ -1153,22 +1155,12 @@ export default function DayPlannerApp() {
           align-items: center;
           justify-content: center;
           z-index: 90;
-          transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        .fab:active {
-          transform: scale(0.95);
-        }
-        
-        .fab svg {
-          width: 24px;
-          height: 24px;
-        }
+        .fab svg { width: 24px; height: 24px; }
         
         @media (min-width: 481px) {
-          .fab {
-            right: calc(50% - 240px + 20px);
-          }
+          .fab { right: calc(50% - 240px + 20px); }
         }
         
         /* Progress Summary */
@@ -1200,42 +1192,15 @@ export default function DayPlannerApp() {
           transition: width 0.4s ease;
         }
         
-        .progress-text {
-          font-size: 14px;
-          font-weight: 600;
-          white-space: nowrap;
-          min-width: 90px;
-          text-align: right;
-          color: var(--text);
-        }
-        
-        .progress-breakdown {
-          display: flex;
-          gap: 20px;
-        }
-        
-        .breakdown-item {
-          font-size: 12px;
-          color: var(--muted);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        
-        .breakdown-item .dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        
+        .progress-text { font-size: 14px; font-weight: 600; white-space: nowrap; min-width: 90px; text-align: right; }
+        .progress-breakdown { display: flex; gap: 20px; }
+        .breakdown-item { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+        .breakdown-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .breakdown-item.work .dot { background: var(--work); }
         .breakdown-item.personal .dot { background: var(--personal); }
         
         /* Tasks Section */
-        .tasks-section {
-          padding: 16px 20px 20px;
-        }
+        .tasks-section { padding: 16px 20px 20px; }
         
         .section-header {
           display: flex;
@@ -1244,22 +1209,9 @@ export default function DayPlannerApp() {
           margin-bottom: 14px;
         }
         
-        .section-header h2 {
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--text);
-        }
-        
-        .section-actions {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
-        .task-count {
-          font-size: 13px;
-          color: var(--muted);
-        }
+        .section-header h2 { font-size: 16px; font-weight: 600; }
+        .section-actions { display: flex; align-items: center; gap: 12px; }
+        .task-count { font-size: 13px; color: var(--muted); }
         
         .shift-btn {
           display: flex;
@@ -1273,19 +1225,11 @@ export default function DayPlannerApp() {
           font-weight: 500;
           color: var(--text-secondary);
           cursor: pointer;
-          transition: all 0.2s;
         }
         
-        .shift-btn:active {
-          background: var(--bg);
-        }
+        .shift-btn svg { width: 16px; height: 16px; }
         
-        .shift-btn svg {
-          width: 16px;
-          height: 16px;
-        }
-        
-        /* Task Wrapper with Swipe */
+        /* Task Wrapper */
         .task-wrapper {
           position: relative;
           margin-bottom: 10px;
@@ -1293,9 +1237,7 @@ export default function DayPlannerApp() {
           border-radius: var(--radius);
         }
         
-        .task-wrapper.selected .task-item {
-          background: var(--personal-light);
-        }
+        .task-wrapper.selected .task-item { background: var(--blue-light); }
         
         .task-actions {
           position: absolute;
@@ -1304,7 +1246,6 @@ export default function DayPlannerApp() {
           bottom: 0;
           width: 140px;
           display: flex;
-          gap: 0;
         }
         
         .action-btn {
@@ -1321,18 +1262,9 @@ export default function DayPlannerApp() {
           color: white;
         }
         
-        .action-btn svg {
-          width: 20px;
-          height: 20px;
-        }
-        
-        .action-btn.edit {
-          background: #3B82F6;
-        }
-        
-        .action-btn.delete {
-          background: var(--danger);
-        }
+        .action-btn svg { width: 20px; height: 20px; }
+        .action-btn.edit { background: var(--blue); }
+        .action-btn.delete { background: var(--danger); }
         
         /* Task Item */
         .task-item {
@@ -1351,16 +1283,9 @@ export default function DayPlannerApp() {
         
         .task-item.work { border-left-color: var(--work); }
         .task-item.personal { border-left-color: var(--personal); }
-        
-        .task-item.done { 
-          opacity: 0.55;
-          background: var(--bg);
-        }
-        
-        .task-item.done .task-name { 
-          text-decoration: line-through;
-          color: var(--muted);
-        }
+        .task-item.done { opacity: 0.55; background: var(--bg); }
+        .task-item.done .task-name { text-decoration: line-through; color: var(--muted); }
+        .task-item.selectable { cursor: pointer; }
         
         .checkbox {
           width: 24px;
@@ -1379,96 +1304,41 @@ export default function DayPlannerApp() {
           flex-shrink: 0;
         }
         
-        .checkbox.checked {
-          background: var(--personal);
-          border-color: var(--personal);
-        }
+        .checkbox.checked { background: var(--personal); border-color: var(--personal); }
+        .checkbox.disabled { opacity: 0.5; cursor: default; }
+        .checkbox svg { width: 14px; height: 14px; color: white; }
         
-        .checkbox svg { 
-          width: 14px; 
-          height: 14px; 
-          color: white;
-        }
-        
-        .task-content { 
-          flex: 1; 
-          min-width: 0;
-        }
-        
-        .task-name { 
-          font-size: 15px; 
-          font-weight: 500; 
-          display: block; 
-          margin-bottom: 6px;
-          word-wrap: break-word;
-          color: var(--text);
-        }
-        
-        .task-meta {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        
-        .category-dot {
-          width: 8px;
-          height: 8px;
+        .select-circle {
+          width: 24px;
+          height: 24px;
+          min-width: 24px;
           border-radius: 50%;
-          flex-shrink: 0;
-        }
-        
-        .category-dot.work { background: var(--work); }
-        .category-dot.personal { background: var(--personal); }
-        
-        .time-badge { 
-          font-size: 12px; 
-          color: var(--muted);
-          font-weight: 500;
-        }
-        
-        .repeat-badge {
-          font-size: 12px;
-        }
-        
-        .select-btn {
-          width: 28px;
-          height: 28px;
-          min-width: 28px;
-          border-radius: 50%;
-          border: 2px solid var(--border);
+          border: 2px solid var(--blue);
           background: transparent;
-          cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
           font-size: 14px;
           color: white;
           transition: all 0.2s;
-          flex-shrink: 0;
         }
         
-        .select-btn.selected {
-          background: var(--personal);
-          border-color: var(--personal);
-        }
+        .select-circle.selected { background: var(--blue); border-color: var(--blue); }
+        
+        .task-content { flex: 1; min-width: 0; }
+        .task-name { font-size: 15px; font-weight: 500; display: block; margin-bottom: 6px; word-wrap: break-word; color: var(--text); }
+        .task-meta { display: flex; align-items: center; gap: 10px; }
+        .category-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .category-dot.work { background: var(--work); }
+        .category-dot.personal { background: var(--personal); }
+        .time-badge { font-size: 12px; color: var(--muted); font-weight: 500; }
+        .repeat-badge { font-size: 12px; }
         
         /* Empty State */
-        .empty-state {
-          text-align: center;
-          padding: 48px 20px;
-          color: var(--muted);
-        }
-        
-        .empty-icon { 
-          font-size: 48px; 
-          margin-bottom: 12px;
-          opacity: 0.6;
-        }
-        
-        .empty-state p {
-          font-size: 15px;
-          color: var(--muted);
-        }
+        .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
+        .empty-state p { font-size: 15px; }
         
         /* Swipe Hint */
         .swipe-hint {
@@ -1498,11 +1368,7 @@ export default function DayPlannerApp() {
         }
         
         @media (min-width: 481px) {
-          .bottom-nav {
-            left: 50%;
-            transform: translateX(-50%);
-            max-width: 480px;
-          }
+          .bottom-nav { left: 50%; transform: translateX(-50%); max-width: 480px; }
         }
         
         .nav-item {
@@ -1516,31 +1382,16 @@ export default function DayPlannerApp() {
           padding: 10px 20px;
           border-radius: var(--radius-sm);
           color: var(--muted);
-          transition: all 0.2s;
         }
         
-        .nav-item.active { 
-          color: var(--personal);
-          background: var(--personal-light);
-        }
-        
-        .nav-item svg { 
-          width: 22px; 
-          height: 22px;
-        }
-        
-        .nav-item span { 
-          font-size: 11px; 
-          font-weight: 600;
-        }
+        .nav-item.active { color: var(--personal); background: var(--personal-light); }
+        .nav-item svg { width: 22px; height: 22px; }
+        .nav-item span { font-size: 11px; font-weight: 600; }
         
         /* Modal */
         .modal-overlay {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(0,0,0,0.5);
           backdrop-filter: blur(4px);
           display: flex;
@@ -1550,10 +1401,7 @@ export default function DayPlannerApp() {
           animation: fadeIn 0.2s ease;
         }
         
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
         .modal-content {
           background: var(--card);
@@ -1567,10 +1415,7 @@ export default function DayPlannerApp() {
           animation: slideUp 0.3s ease;
         }
         
-        @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
         .modal-header {
           display: flex;
@@ -1579,11 +1424,7 @@ export default function DayPlannerApp() {
           margin-bottom: 24px;
         }
         
-        .modal-header h2 { 
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text);
-        }
+        .modal-header h2 { font-size: 20px; font-weight: 700; color: var(--text); }
         
         .close-btn {
           width: 36px;
@@ -1600,21 +1441,10 @@ export default function DayPlannerApp() {
           flex-shrink: 0;
         }
         
-        .close-btn svg {
-          width: 18px;
-          height: 18px;
-          color: var(--muted);
-        }
+        .close-btn svg { width: 18px; height: 18px; color: var(--muted); }
         
         .form-group { margin-bottom: 20px; }
-        
-        .form-group label { 
-          display: block; 
-          font-size: 13px; 
-          font-weight: 600; 
-          color: var(--text-secondary); 
-          margin-bottom: 8px;
-        }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
         
         .form-group input[type="text"],
         .form-group input[type="date"],
@@ -1627,34 +1457,14 @@ export default function DayPlannerApp() {
           font-family: inherit;
           background: var(--card);
           color: var(--text);
-          transition: border-color 0.2s;
-          -webkit-appearance: none;
         }
         
-        .form-group input::placeholder {
-          color: var(--muted);
-        }
+        .form-group input::placeholder { color: var(--muted); }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--personal); }
         
-        .form-group input:focus,
-        .form-group select:focus {
-          outline: none;
-          border-color: var(--personal);
-        }
-        
-        .form-row {
-          display: flex;
-          gap: 12px;
-        }
-        
-        .form-row-2 {
-          display: flex;
-          gap: 12px;
-        }
-        
-        .form-row-2 .form-group { 
-          flex: 1;
-          margin-bottom: 0;
-        }
+        .form-row { display: flex; gap: 12px; }
+        .form-row-2 { display: flex; gap: 12px; }
+        .form-row-2 .form-group { flex: 1; margin-bottom: 0; }
         
         .cat-btn {
           flex: 1;
@@ -1665,28 +1475,13 @@ export default function DayPlannerApp() {
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
           color: var(--text-secondary);
         }
         
-        .cat-btn.active.work { 
-          border-color: var(--work); 
-          background: var(--work-light); 
-          color: #B45309;
-        }
+        .cat-btn.active.work { border-color: var(--work); background: var(--work-light); color: #B45309; }
+        .cat-btn.active.personal { border-color: var(--personal); background: var(--personal-light); color: #047857; }
         
-        .cat-btn.active.personal { 
-          border-color: var(--personal); 
-          background: var(--personal-light); 
-          color: #047857;
-        }
-        
-        .time-presets {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-          flex-wrap: wrap;
-        }
+        .time-presets { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
         
         .preset-btn {
           padding: 10px 16px;
@@ -1696,47 +1491,15 @@ export default function DayPlannerApp() {
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
           color: var(--text-secondary);
         }
         
-        .preset-btn.active { 
-          background: var(--text); 
-          color: white; 
-          border-color: var(--text);
-        }
+        .preset-btn.active { background: var(--text); color: white; border-color: var(--text); }
         
-        .slider-row {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-        
-        .slider-row input[type="range"] { 
-          flex: 1;
-          height: 6px;
-          -webkit-appearance: none;
-          background: var(--border);
-          border-radius: 3px;
-          outline: none;
-        }
-        
-        .slider-row input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 20px;
-          height: 20px;
-          background: var(--text);
-          border-radius: 50%;
-          cursor: pointer;
-        }
-        
-        .slider-value { 
-          font-size: 14px; 
-          font-weight: 600; 
-          min-width: 55px;
-          text-align: right;
-          color: var(--text);
-        }
+        .slider-row { display: flex; align-items: center; gap: 14px; }
+        .slider-row input[type="range"] { flex: 1; height: 6px; -webkit-appearance: none; background: var(--border); border-radius: 3px; }
+        .slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--text); border-radius: 50%; cursor: pointer; }
+        .slider-value { font-size: 14px; font-weight: 600; min-width: 55px; text-align: right; color: var(--text); }
         
         .save-btn {
           width: 100%;
@@ -1749,31 +1512,15 @@ export default function DayPlannerApp() {
           font-weight: 600;
           cursor: pointer;
           margin-top: 8px;
-          transition: opacity 0.2s, transform 0.2s;
         }
         
-        .save-btn:active {
-          transform: scale(0.98);
-        }
+        /* Move Modal */
+        .move-modal { max-height: 60vh; }
+        .move-info { font-size: 15px; color: var(--text-secondary); margin-bottom: 20px; }
         
-        /* Shift Modal */
-        .shift-modal {
-          max-height: 60vh;
-        }
+        .quick-dates { display: flex; gap: 10px; margin-bottom: 20px; }
         
-        .shift-info {
-          font-size: 15px;
-          color: var(--text-secondary);
-          margin-bottom: 20px;
-        }
-        
-        .shift-buttons {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 20px;
-        }
-        
-        .quick-shift-btn {
+        .quick-date-btn {
           flex: 1;
           padding: 12px;
           border: 2px solid var(--border);
@@ -1783,17 +1530,12 @@ export default function DayPlannerApp() {
           font-weight: 500;
           cursor: pointer;
           color: var(--text-secondary);
-          transition: all 0.2s;
         }
         
-        .quick-shift-btn:active {
-          background: var(--bg);
-        }
+        .quick-date-btn.active { border-color: var(--personal); background: var(--personal-light); color: #047857; }
         
         /* Settings Modal */
-        .modal-content.settings { 
-          padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-        }
+        .modal-content.settings { padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px)); }
         
         .user-info {
           display: flex;
@@ -1805,13 +1547,7 @@ export default function DayPlannerApp() {
           margin-bottom: 24px;
         }
         
-        .user-avatar { 
-          width: 48px; 
-          height: 48px; 
-          border-radius: 50%;
-          object-fit: cover;
-          flex-shrink: 0;
-        }
+        .user-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         
         .user-avatar-placeholder {
           width: 48px;
@@ -1825,33 +1561,14 @@ export default function DayPlannerApp() {
           justify-content: center;
           font-size: 20px;
           font-weight: 600;
-          flex-shrink: 0;
         }
         
-        .user-name { 
-          font-weight: 600;
-          font-size: 15px;
-          color: var(--text);
-        }
-        
-        .user-email { 
-          font-size: 13px; 
-          color: var(--muted);
-          margin-top: 2px;
-        }
+        .user-name { font-weight: 600; font-size: 15px; color: var(--text); }
+        .user-email { font-size: 13px; color: var(--muted); margin-top: 2px; }
         
         .settings-section { margin-bottom: 24px; }
-        .settings-section h3 { 
-          font-size: 16px;
-          font-weight: 600;
-          margin-bottom: 4px;
-          color: var(--text);
-        }
-        .section-desc { 
-          font-size: 13px; 
-          color: var(--muted); 
-          margin-bottom: 14px;
-        }
+        .settings-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+        .section-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
         
         .export-btn {
           width: 100%;
@@ -1867,19 +1584,11 @@ export default function DayPlannerApp() {
           display: flex;
           align-items: center;
           gap: 10px;
-          transition: background 0.2s;
           color: var(--text);
         }
         
-        .export-btn:active { background: var(--border); }
         .export-btn span { font-size: 18px; }
-        
-        .export-status { 
-          font-size: 13px; 
-          color: var(--personal); 
-          margin-top: 10px;
-          font-weight: 500;
-        }
+        .export-status { font-size: 13px; color: var(--personal); margin-top: 10px; font-weight: 500; }
         
         .signout-btn {
           width: 100%;
@@ -1891,13 +1600,10 @@ export default function DayPlannerApp() {
           font-size: 15px;
           font-weight: 600;
           cursor: pointer;
-          transition: background 0.2s;
         }
         
         /* Calendar */
-        .calendar-view { 
-          padding: 16px 20px;
-        }
+        .calendar-view { padding: 16px 20px; }
         
         .calendar-nav {
           display: flex;
@@ -1906,16 +1612,12 @@ export default function DayPlannerApp() {
           margin-bottom: 20px;
         }
         
-        .calendar-nav h2 { 
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--text);
-        }
+        .calendar-nav h2 { font-size: 18px; font-weight: 600; color: var(--text); }
         
-        .nav-btn {
-          width: 40px;
-          height: 40px;
-          min-width: 40px;
+        .cal-nav-btn {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
           border-radius: 50%;
           border: none;
           background: var(--card);
@@ -1924,14 +1626,9 @@ export default function DayPlannerApp() {
           align-items: center;
           justify-content: center;
           box-shadow: var(--shadow-sm);
-          flex-shrink: 0;
         }
         
-        .nav-btn svg {
-          width: 20px;
-          height: 20px;
-          color: var(--text);
-        }
+        .cal-nav-btn svg { display: block; }
         
         .calendar-weekdays {
           display: grid;
@@ -1940,11 +1637,7 @@ export default function DayPlannerApp() {
           margin-bottom: 10px;
         }
         
-        .calendar-weekdays span { 
-          font-size: 11px; 
-          font-weight: 600; 
-          color: var(--muted);
-        }
+        .calendar-weekdays span { font-size: 11px; font-weight: 600; color: var(--muted); }
         
         .calendar-grid {
           display: grid;
@@ -1961,43 +1654,15 @@ export default function DayPlannerApp() {
           border-radius: var(--radius-sm);
           cursor: pointer;
           background: var(--card);
-          transition: all 0.2s;
           position: relative;
         }
         
-        .cal-cell.empty { 
-          background: transparent;
-          pointer-events: none;
-        }
-        
-        .cal-cell.today { 
-          border: 2px solid var(--personal);
-        }
-        
-        .cal-cell.selected { 
-          background: var(--personal);
-          color: white;
-        }
-        
-        .cal-date-num {
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .cal-dots { 
-          display: flex; 
-          gap: 3px;
-          margin-top: 4px;
-          position: absolute;
-          bottom: 6px;
-        }
-        
-        .cal-dot { 
-          width: 5px; 
-          height: 5px; 
-          border-radius: 50%;
-        }
-        
+        .cal-cell.empty { background: transparent; pointer-events: none; }
+        .cal-cell.today { border: 2px solid var(--personal); }
+        .cal-cell.selected { background: var(--personal); color: white; }
+        .cal-date-num { font-size: 14px; font-weight: 500; }
+        .cal-dots { display: flex; gap: 3px; margin-top: 4px; position: absolute; bottom: 6px; }
+        .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
         .cal-dot.work { background: var(--work); }
         .cal-dot.personal { background: var(--personal); }
         
@@ -2013,34 +1678,25 @@ export default function DayPlannerApp() {
           box-shadow: var(--shadow-sm);
         }
         
-        .date-nav button { 
-          width: 32px; 
+        .date-nav button {
+          width: 32px;
           height: 32px;
           min-width: 32px;
-          border-radius: 50%; 
-          border: none; 
-          background: var(--bg); 
+          border-radius: 50%;
+          border: none;
+          background: var(--bg);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 16px;
           color: var(--text);
-          flex-shrink: 0;
         }
         
-        .date-nav span { 
-          font-weight: 600; 
-          min-width: 100px; 
-          text-align: center; 
-          font-size: 15px;
-          color: var(--text);
-        }
+        .date-nav span { font-weight: 600; min-width: 100px; text-align: center; font-size: 15px; color: var(--text); }
         
         /* Analytics */
-        .analytics-view { 
-          padding: 16px 20px;
-        }
+        .analytics-view { padding: 16px 20px; }
         
         .stats-row {
           display: grid;
@@ -2057,21 +1713,8 @@ export default function DayPlannerApp() {
           box-shadow: var(--shadow-sm);
         }
         
-        .stat-value { 
-          font-size: 22px; 
-          font-weight: 700; 
-          display: block;
-          color: var(--text);
-        }
-        
-        .stat-label { 
-          font-size: 11px; 
-          color: var(--muted);
-          text-transform: uppercase;
-          font-weight: 600;
-          margin-top: 4px;
-          display: block;
-        }
+        .stat-value { font-size: 22px; font-weight: 700; display: block; color: var(--text); }
+        .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; margin-top: 4px; display: block; }
         
         .chart-card {
           background: var(--card);
@@ -2081,73 +1724,19 @@ export default function DayPlannerApp() {
           box-shadow: var(--shadow-sm);
         }
         
-        .chart-card h3 { 
-          font-size: 15px;
-          font-weight: 600;
-          margin-bottom: 16px;
-          color: var(--text);
-        }
+        .chart-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
         
-        .bar-chart {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          height: 100px;
-        }
-        
-        .bar-col {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          flex: 1;
-        }
-        
-        .bar-stack {
-          width: 28px;
-          height: 80px;
-          display: flex;
-          flex-direction: column-reverse;
-          border-radius: 6px;
-          overflow: hidden;
-          background: var(--bg);
-        }
-        
-        .bar { 
-          width: 100%; 
-          transition: height 0.4s ease;
-        }
-        
+        .bar-chart { display: flex; justify-content: space-between; align-items: flex-end; height: 100px; }
+        .bar-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+        .bar-stack { width: 28px; height: 80px; display: flex; flex-direction: column-reverse; border-radius: 6px; overflow: hidden; background: var(--bg); }
+        .bar { width: 100%; transition: height 0.4s ease; }
         .bar.work { background: var(--work); }
         .bar.personal { background: var(--personal); }
+        .bar-day { font-size: 12px; color: var(--muted); font-weight: 600; }
         
-        .bar-day { 
-          font-size: 12px; 
-          color: var(--muted);
-          font-weight: 600;
-        }
-        
-        .chart-legend {
-          display: flex;
-          justify-content: center;
-          gap: 24px;
-          margin-top: 16px;
-          font-size: 12px;
-          color: var(--muted);
-        }
-        
-        .chart-legend span { 
-          display: flex; 
-          align-items: center; 
-          gap: 6px;
-        }
-        
-        .legend-dot { 
-          width: 10px; 
-          height: 10px; 
-          border-radius: 50%;
-        }
-        
+        .chart-legend { display: flex; justify-content: center; gap: 24px; margin-top: 16px; font-size: 12px; color: var(--muted); }
+        .chart-legend span { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
         .legend-dot.work { background: var(--work); }
         .legend-dot.personal { background: var(--personal); }
         
@@ -2161,33 +1750,29 @@ export default function DayPlannerApp() {
           box-shadow: var(--shadow-sm);
         }
         
-        .insight-icon { 
-          font-size: 28px;
-          line-height: 1;
-        }
-        
-        .insight-card p { 
-          font-size: 14px; 
-          color: var(--muted);
-        }
-        
-        .insight-card strong { 
-          color: var(--text);
-          font-weight: 600;
-        }
+        .insight-icon { font-size: 28px; line-height: 1; }
+        .insight-card p { font-size: 14px; color: var(--muted); }
+        .insight-card strong { color: var(--text); font-weight: 600; }
       `}</style>
       
       <div className="app">
-        {activeTab === 'today' && (
+        {/* Selection Mode Header */}
+        {isSelectionMode && (
+          <SelectionHeader 
+            selectedCount={selectedTasks.length}
+            onCancel={exitSelectionMode}
+            onMove={() => setShowMoveModal(true)}
+          />
+        )}
+        
+        {activeTab === 'today' && !isSelectionMode && (
           <>
             <div className="header">
               <div className="header-left">
                 <h1>Today</h1>
                 <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
               </div>
-              <div className="header-right">
-                <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
-              </div>
+              <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
             </div>
             
             <ProgressSummary 
@@ -2196,13 +1781,17 @@ export default function DayPlannerApp() {
               personalDone={personalDone}
               personalTotal={personalTotal}
             />
-            
-            <div className="tasks-section">
+          </>
+        )}
+        
+        {activeTab === 'today' && (
+          <div className="tasks-section">
+            {!isSelectionMode && (
               <div className="section-header">
                 <h2>Tasks</h2>
                 <div className="section-actions">
                   {pendingCount > 0 && (
-                    <button className="shift-btn" onClick={() => setShowShiftModal(true)}>
+                    <button className="shift-btn" onClick={enterSelectionMode}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                       </svg>
@@ -2212,34 +1801,39 @@ export default function DayPlannerApp() {
                   <span className="task-count">{pendingCount} remaining</span>
                 </div>
               </div>
-              
-              {todayTasks.length > 0 && (
-                <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
-              )}
-              
-              {todayTasks.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📋</div>
-                  <p>No tasks for today</p>
-                </div>
-              ) : (
-                todayTasks.map(task => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    onToggle={toggleTask}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    isSelected={selectedTasks.includes(task.id)}
-                    onSelect={handleSelectTask}
-                  />
-                ))
-              )}
-            </div>
-          </>
+            )}
+            
+            {currentDateTasks.length > 0 && !isSelectionMode && (
+              <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
+            )}
+            
+            {isSelectionMode && currentDateTasks.length > 0 && (
+              <div className="swipe-hint">Tap incomplete tasks to select them</div>
+            )}
+            
+            {currentDateTasks.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📋</div>
+                <p>No tasks for today</p>
+              </div>
+            ) : (
+              currentDateTasks.map(task => (
+                <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  onToggle={toggleTask}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={selectedTasks.includes(task.id)}
+                  onSelect={handleSelectTask}
+                />
+              ))
+            )}
+          </div>
         )}
         
-        {activeTab === 'calendar' && (
+        {activeTab === 'calendar' && !isSelectionMode && (
           <>
             <div className="header">
               <div className="header-left">
@@ -2249,7 +1843,7 @@ export default function DayPlannerApp() {
             
             <CalendarView 
               tasks={tasks} 
-              onDateSelect={(d) => { setSelectedDate(d); setSelectedTasks([]); }}
+              onDateSelect={setSelectedDate}
               selectedDate={selectedDate}
             />
             
@@ -2258,47 +1852,52 @@ export default function DayPlannerApp() {
               <span>{formatDate(selectedDate)}</span>
               <button onClick={() => navigateDate(1)}>›</button>
             </div>
-            
-            <div className="tasks-section">
+          </>
+        )}
+        
+        {activeTab === 'calendar' && (
+          <div className="tasks-section">
+            {!isSelectionMode && (
               <div className="section-header">
                 <h2>Tasks</h2>
                 <div className="section-actions">
                   {pendingCount > 0 && (
-                    <button className="shift-btn" onClick={() => setShowShiftModal(true)}>
+                    <button className="shift-btn" onClick={enterSelectionMode}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                       </svg>
                       Shift
                     </button>
                   )}
-                  <span className="task-count">{selectedDateTasks.length} total</span>
+                  <span className="task-count">{currentDateTasks.length} total</span>
                 </div>
               </div>
-              
-              {selectedDateTasks.length > 0 && (
-                <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
-              )}
-              
-              {selectedDateTasks.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📅</div>
-                  <p>No tasks for this day</p>
-                </div>
-              ) : (
-                selectedDateTasks.map(task => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    onToggle={toggleTask}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    isSelected={selectedTasks.includes(task.id)}
-                    onSelect={handleSelectTask}
-                  />
-                ))
-              )}
-            </div>
-          </>
+            )}
+            
+            {currentDateTasks.length > 0 && !isSelectionMode && (
+              <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
+            )}
+            
+            {currentDateTasks.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📅</div>
+                <p>No tasks for this day</p>
+              </div>
+            ) : (
+              currentDateTasks.map(task => (
+                <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  onToggle={toggleTask}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={selectedTasks.includes(task.id)}
+                  onSelect={handleSelectTask}
+                />
+              ))
+            )}
+          </div>
         )}
         
         {activeTab === 'analytics' && (
@@ -2307,46 +1906,48 @@ export default function DayPlannerApp() {
               <div className="header-left">
                 <h1>Analytics</h1>
               </div>
-              <div className="header-right">
-                <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
-              </div>
+              <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
             </div>
             <AnalyticsView tasks={tasks} />
           </>
         )}
         
-        <button className="fab" onClick={() => setShowModal(true)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+        {!isSelectionMode && (
+          <button className="fab" onClick={() => setShowModal(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        )}
         
-        <nav className="bottom-nav">
-          <button className={`nav-item ${activeTab === 'today' ? 'active' : ''}`} onClick={() => { setActiveTab('today'); setSelectedTasks([]); }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            </svg>
-            <span>Today</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <span>Calendar</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-            <span>Analytics</span>
-          </button>
-        </nav>
+        {!isSelectionMode && (
+          <nav className="bottom-nav">
+            <button className={`nav-item ${activeTab === 'today' ? 'active' : ''}`} onClick={() => setActiveTab('today')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+              <span>Today</span>
+            </button>
+            <button className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span>Calendar</span>
+            </button>
+            <button className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+              <span>Analytics</span>
+            </button>
+          </nav>
+        )}
         
         {showModal && (
           <TaskModal 
@@ -2357,14 +1958,11 @@ export default function DayPlannerApp() {
           />
         )}
         
-        {showShiftModal && (
-          <ShiftModal 
-            onClose={() => setShowShiftModal(false)}
-            onShift={handleShift}
-            selectedCount={selectedTasks.filter(id => {
-              const task = tasks.find(t => t.id === id);
-              return task && task.status !== 'Done';
-            }).length}
+        {showMoveModal && (
+          <MoveModal 
+            onClose={() => setShowMoveModal(false)}
+            onMove={handleMove}
+            selectedCount={selectedTasks.length}
             targetDate={activeTab === 'calendar' ? selectedDate : today}
           />
         )}
