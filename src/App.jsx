@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -10,7 +10,8 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  enableIndexedDbPersistence
+  enableIndexedDbPersistence,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -58,7 +59,6 @@ const formatTime = (minutes) => {
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 };
 
-// Fix timezone issue - parse date as local
 const parseLocalDate = (dateStr) => {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
@@ -88,17 +88,53 @@ const dateToStr = (date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+const getNextDay = (dateStr) => {
+  const date = parseLocalDate(dateStr);
+  date.setDate(date.getDate() + 1);
+  return dateToStr(date);
+};
+
+// Sort tasks: pending first, then done
+const sortTasks = (tasks) => {
+  return [...tasks].sort((a, b) => {
+    if (a.status === 'Done' && b.status !== 'Done') return 1;
+    if (a.status !== 'Done' && b.status === 'Done') return -1;
+    return 0;
+  });
+};
+
 // ============================================
 // COMPONENTS
 // ============================================
 
-// Login Screen
+// Login Screen - Improved UI
 const LoginScreen = ({ onLogin }) => (
   <div className="login-screen">
+    <div className="login-bg">
+      <div className="login-shape shape-1"></div>
+      <div className="login-shape shape-2"></div>
+      <div className="login-shape shape-3"></div>
+    </div>
     <div className="login-content">
-      <div className="login-icon">📋</div>
+      <div className="login-logo">
+        <svg viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="#10B981"/>
+          <path d="M14 24L21 31L34 18" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
       <h1>DayPlanner</h1>
-      <p>Track your work and personal tasks</p>
+      <p>Organize your day, track your progress</p>
+      <div className="login-features">
+        <div className="feature-item">
+          <span>✓</span> Track work & personal tasks
+        </div>
+        <div className="feature-item">
+          <span>✓</span> Sync across all devices
+        </div>
+        <div className="feature-item">
+          <span>✓</span> Analyze your productivity
+        </div>
+      </div>
       <button className="google-btn" onClick={onLogin}>
         <svg viewBox="0 0 24 24" width="20" height="20">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -106,13 +142,14 @@ const LoginScreen = ({ onLogin }) => (
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
         </svg>
-        Sign in with Google
+        Continue with Google
       </button>
+      <p className="login-footer">Your data stays private and secure</p>
     </div>
   </div>
 );
 
-// Compact Progress Bar
+// Progress Summary
 const ProgressSummary = ({ workDone, workTotal, personalDone, personalTotal }) => {
   const totalDone = workDone + personalDone;
   const totalAll = workTotal + personalTotal;
@@ -122,10 +159,7 @@ const ProgressSummary = ({ workDone, workTotal, personalDone, personalTotal }) =
     <div className="progress-summary">
       <div className="progress-main">
         <div className="progress-bar-bg">
-          <div 
-            className="progress-bar-fill"
-            style={{ width: `${percent}%` }}
-          />
+          <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
         </div>
         <span className="progress-text">{formatTime(totalDone)} / {formatTime(totalAll)}</span>
       </div>
@@ -143,48 +177,101 @@ const ProgressSummary = ({ workDone, workTotal, personalDone, personalTotal }) =
   );
 };
 
-// Task Item
-const TaskItem = ({ task, onToggle, onEdit, onDelete }) => {
-  const [showActions, setShowActions] = useState(false);
+// Swipeable Task Item
+const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelected, onSelect }) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [startX, setStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const taskRef = useRef(null);
   const isDone = task.status === 'Done';
   
+  const handleTouchStart = (e) => {
+    setStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+  
+  const handleTouchMove = (e) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
+    // Only allow left swipe (negative values), limit to -140px
+    if (diff < 0) {
+      setSwipeX(Math.max(diff, -140));
+    } else {
+      setSwipeX(0);
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    // Snap to open or closed position
+    if (swipeX < -70) {
+      setSwipeX(-140);
+    } else {
+      setSwipeX(0);
+    }
+  };
+  
+  const closeSwipe = () => {
+    setSwipeX(0);
+  };
+  
   return (
-    <div 
-      className={`task-item ${isDone ? 'done' : ''} ${task.category.toLowerCase()}`}
-      onTouchStart={() => setShowActions(true)}
-      onTouchEnd={() => setTimeout(() => setShowActions(false), 3000)}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
-      <button 
-        className={`checkbox ${isDone ? 'checked' : ''}`}
-        onClick={() => onToggle(task.id, task.status)}
-        aria-label={isDone ? "Mark as pending" : "Mark as done"}
+    <div className={`task-wrapper ${isSelected ? 'selected' : ''}`}>
+      <div 
+        className="task-actions"
+        style={{ opacity: Math.min(1, Math.abs(swipeX) / 70) }}
       >
-        {isDone && (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
+        <button className="action-btn edit" onClick={() => { closeSwipe(); onEdit(task); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
-        )}
-      </button>
-      <div className="task-content" onClick={() => onEdit(task)}>
-        <span className="task-name">{task.task}</span>
-        <div className="task-meta">
-          <span className={`category-dot ${task.category.toLowerCase()}`}></span>
-          <span className="time-badge">{formatTime(task.timeRequired)}</span>
-          {task.repeat && task.repeat !== 'none' && (
-            <span className="repeat-badge">🔁</span>
-          )}
-        </div>
-      </div>
-      {showActions && (
-        <button className="delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          Edit
         </button>
-      )}
+        <button className="action-btn delete" onClick={() => { closeSwipe(); onDelete(task.id); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+          Delete
+        </button>
+      </div>
+      <div 
+        ref={taskRef}
+        className={`task-item ${isDone ? 'done' : ''} ${task.category.toLowerCase()}`}
+        style={{ transform: `translateX(${swipeX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <button 
+          className={`checkbox ${isDone ? 'checked' : ''}`}
+          onClick={() => onToggle(task.id, task.status)}
+        >
+          {isDone && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </button>
+        <div className="task-content">
+          <span className="task-name">{task.task}</span>
+          <div className="task-meta">
+            <span className={`category-dot ${task.category.toLowerCase()}`}></span>
+            <span className="time-badge">{formatTime(task.timeRequired)}</span>
+            {task.repeat && task.repeat !== 'none' && (
+              <span className="repeat-badge">🔁</span>
+            )}
+          </div>
+        </div>
+        <button 
+          className={`select-btn ${isSelected ? 'selected' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+        >
+          {isSelected ? '✓' : ''}
+        </button>
+      </div>
     </div>
   );
 };
@@ -230,6 +317,7 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
         </div>
         
         <div className="form-group">
+          <label>Task Name</label>
           <input
             type="text"
             placeholder="What needs to be done?"
@@ -239,19 +327,22 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
           />
         </div>
         
-        <div className="form-row">
-          <button 
-            className={`cat-btn ${formData.category === 'Work' ? 'active work' : ''}`}
-            onClick={() => setFormData({...formData, category: 'Work'})}
-          >
-            💼 Work
-          </button>
-          <button 
-            className={`cat-btn ${formData.category === 'Personal' ? 'active personal' : ''}`}
-            onClick={() => setFormData({...formData, category: 'Personal'})}
-          >
-            🏠 Personal
-          </button>
+        <div className="form-group">
+          <label>Category</label>
+          <div className="form-row">
+            <button 
+              className={`cat-btn ${formData.category === 'Work' ? 'active work' : ''}`}
+              onClick={() => setFormData({...formData, category: 'Work'})}
+            >
+              💼 Work
+            </button>
+            <button 
+              className={`cat-btn ${formData.category === 'Personal' ? 'active personal' : ''}`}
+              onClick={() => setFormData({...formData, category: 'Personal'})}
+            >
+              🏠 Personal
+            </button>
+          </div>
         </div>
         
         <div className="form-group">
@@ -276,7 +367,7 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
               value={formData.timeRequired}
               onChange={e => setFormData({...formData, timeRequired: parseInt(e.target.value)})}
             />
-            <span>{formatTime(formData.timeRequired)}</span>
+            <span className="slider-value">{formatTime(formData.timeRequired)}</span>
           </div>
         </div>
         
@@ -304,6 +395,58 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
         
         <button className="save-btn" onClick={handleSave}>
           {task ? 'Save Changes' : 'Add Task'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Shift Tasks Modal
+const ShiftModal = ({ onClose, onShift, selectedCount, targetDate }) => {
+  const [shiftDate, setShiftDate] = useState(getNextDay(targetDate));
+  
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content shift-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Shift Tasks</h2>
+          <button className="close-btn" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        
+        <p className="shift-info">
+          {selectedCount > 0 
+            ? `Move ${selectedCount} selected task${selectedCount > 1 ? 's' : ''} to:`
+            : 'Move all incomplete tasks to:'}
+        </p>
+        
+        <div className="form-group">
+          <input
+            type="date"
+            value={shiftDate}
+            onChange={e => setShiftDate(e.target.value)}
+          />
+        </div>
+        
+        <div className="shift-buttons">
+          <button className="quick-shift-btn" onClick={() => setShiftDate(getNextDay(targetDate))}>
+            Tomorrow
+          </button>
+          <button className="quick-shift-btn" onClick={() => {
+            const d = parseLocalDate(targetDate);
+            d.setDate(d.getDate() + 7);
+            setShiftDate(dateToStr(d));
+          }}>
+            Next Week
+          </button>
+        </div>
+        
+        <button className="save-btn" onClick={() => onShift(shiftDate)}>
+          Shift Tasks
         </button>
       </div>
     </div>
@@ -435,24 +578,16 @@ const CalendarView = ({ tasks, onDateSelect, selectedDate }) => {
     };
   };
   
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  };
-  
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  };
-  
   return (
     <div className="calendar-view">
       <div className="calendar-nav">
-        <button onClick={prevMonth} className="nav-btn">
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="nav-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
         <h2>{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-        <button onClick={nextMonth} className="nav-btn">
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="nav-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <polyline points="9 18 15 12 9 6" />
           </svg>
@@ -573,10 +708,11 @@ export default function DayPlannerApp() {
   const [activeTab, setActiveTab] = useState('today');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShiftModal, setShowShiftModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
+  const [selectedTasks, setSelectedTasks] = useState([]);
   
-  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -585,7 +721,6 @@ export default function DayPlannerApp() {
     return unsubscribe;
   }, []);
   
-  // Tasks listener
   useEffect(() => {
     if (!user) return;
     
@@ -673,24 +808,56 @@ export default function DayPlannerApp() {
     setShowModal(true);
   };
   
+  const handleSelectTask = (taskId) => {
+    setSelectedTasks(prev => 
+      prev.includes(taskId) 
+        ? prev.filter(id => id !== taskId)
+        : [...prev, taskId]
+    );
+  };
+  
+  const handleShift = async (newDate) => {
+    const currentDateTasks = activeTab === 'today' 
+      ? tasks.filter(t => t.date === getTodayStr())
+      : tasks.filter(t => t.date === selectedDate);
+    
+    const tasksToShift = selectedTasks.length > 0
+      ? currentDateTasks.filter(t => selectedTasks.includes(t.id) && t.status !== 'Done')
+      : currentDateTasks.filter(t => t.status !== 'Done');
+    
+    const batch = writeBatch(db);
+    
+    for (const task of tasksToShift) {
+      const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+      batch.update(taskRef, { date: newDate });
+    }
+    
+    await batch.commit();
+    setSelectedTasks([]);
+    setShowShiftModal(false);
+  };
+  
   const navigateDate = (direction) => {
     const current = parseLocalDate(selectedDate);
     current.setDate(current.getDate() + direction);
     setSelectedDate(dateToStr(current));
+    setSelectedTasks([]);
   };
   
-  // Filter tasks
   const today = getTodayStr();
-  const todayTasks = tasks.filter(t => t.date === today);
-  const selectedDateTasks = tasks.filter(t => t.date === selectedDate);
+  const todayTasks = sortTasks(tasks.filter(t => t.date === today));
+  const selectedDateTasks = sortTasks(tasks.filter(t => t.date === selectedDate));
   
-  // Calculate stats
   const workTasks = todayTasks.filter(t => t.category === 'Work');
   const personalTasks = todayTasks.filter(t => t.category === 'Personal');
   const workDone = workTasks.filter(t => t.status === 'Done').reduce((s, t) => s + t.timeRequired, 0);
   const workTotal = workTasks.reduce((s, t) => s + t.timeRequired, 0);
   const personalDone = personalTasks.filter(t => t.status === 'Done').reduce((s, t) => s + t.timeRequired, 0);
   const personalTotal = personalTasks.reduce((s, t) => s + t.timeRequired, 0);
+  
+  const pendingCount = activeTab === 'today' 
+    ? todayTasks.filter(t => t.status !== 'Done').length
+    : selectedDateTasks.filter(t => t.status !== 'Done').length;
   
   if (loading) {
     return <div className="loading"><div className="spinner"></div></div>;
@@ -708,18 +875,21 @@ export default function DayPlannerApp() {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         :root {
-          --bg: #F7F7F5;
+          --bg: #F4F4F2;
           --card: #FFFFFF;
           --text: #1A1A1A;
+          --text-secondary: #52525B;
           --muted: #71717A;
           --work: #F59E0B;
           --work-light: #FEF3C7;
           --personal: #10B981;
           --personal-light: #D1FAE5;
           --border: #E4E4E7;
-          --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-          --shadow: 0 4px 12px rgba(0,0,0,0.08);
-          --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+          --danger: #EF4444;
+          --danger-light: #FEE2E2;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+          --shadow: 0 4px 12px rgba(0,0,0,0.06);
+          --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
           --radius: 16px;
           --radius-sm: 12px;
         }
@@ -727,7 +897,7 @@ export default function DayPlannerApp() {
         html, body, #root {
           width: 100%;
           min-height: 100vh;
-          min-height: -webkit-fill-available;
+          min-height: 100dvh;
           margin: 0;
           padding: 0;
           overflow-x: hidden;
@@ -745,9 +915,9 @@ export default function DayPlannerApp() {
           max-width: 480px;
           margin: 0 auto;
           min-height: 100vh;
-          min-height: -webkit-fill-available;
+          min-height: 100dvh;
           background: var(--bg);
-          padding-bottom: 100px;
+          padding-bottom: 90px;
           position: relative;
         }
         
@@ -758,6 +928,7 @@ export default function DayPlannerApp() {
           align-items: center;
           justify-content: center;
           height: 100vh;
+          height: 100dvh;
           background: var(--bg);
         }
         
@@ -765,7 +936,7 @@ export default function DayPlannerApp() {
           width: 32px;
           height: 32px;
           border: 3px solid var(--border);
-          border-top-color: var(--text);
+          border-top-color: var(--personal);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
@@ -774,47 +945,144 @@ export default function DayPlannerApp() {
           to { transform: rotate(360deg); }
         }
         
-        /* Login */
+        /* Login Screen - Improved */
         .login-screen {
           width: 100%;
           min-height: 100vh;
-          min-height: -webkit-fill-available;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #18181B 0%, #27272A 100%);
+          background: linear-gradient(135deg, #065F46 0%, #047857 50%, #10B981 100%);
           padding: 24px;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .login-bg {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          overflow: hidden;
+        }
+        
+        .login-shape {
+          position: absolute;
+          border-radius: 50%;
+          opacity: 0.1;
+          background: white;
+        }
+        
+        .shape-1 {
+          width: 300px;
+          height: 300px;
+          top: -100px;
+          right: -100px;
+        }
+        
+        .shape-2 {
+          width: 200px;
+          height: 200px;
+          bottom: 20%;
+          left: -80px;
+        }
+        
+        .shape-3 {
+          width: 150px;
+          height: 150px;
+          bottom: -50px;
+          right: 20%;
         }
         
         .login-content {
           text-align: center;
           color: white;
           width: 100%;
-          max-width: 320px;
+          max-width: 340px;
+          position: relative;
+          z-index: 1;
         }
         
-        .login-icon { font-size: 56px; margin-bottom: 20px; }
-        .login-content h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
-        .login-content p { color: #A1A1AA; margin-bottom: 32px; font-size: 15px; }
+        .login-logo {
+          margin-bottom: 24px;
+        }
+        
+        .login-logo svg {
+          width: 72px;
+          height: 72px;
+          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+        }
+        
+        .login-content h1 { 
+          font-size: 32px; 
+          font-weight: 700; 
+          margin-bottom: 8px; 
+          letter-spacing: -0.5px;
+        }
+        
+        .login-content > p { 
+          color: rgba(255,255,255,0.8); 
+          margin-bottom: 32px; 
+          font-size: 16px;
+        }
+        
+        .login-features {
+          text-align: left;
+          background: rgba(255,255,255,0.1);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          padding: 20px;
+          margin-bottom: 32px;
+        }
+        
+        .feature-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 0;
+          font-size: 14px;
+          color: rgba(255,255,255,0.9);
+        }
+        
+        .feature-item span {
+          width: 24px;
+          height: 24px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+        }
         
         .google-btn {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 12px;
-          padding: 14px 32px;
+          width: 100%;
+          padding: 16px 32px;
           background: white;
-          color: #1A1A1A;
+          color: var(--text);
           border: none;
-          border-radius: 12px;
-          font-size: 15px;
+          border-radius: 14px;
+          font-size: 16px;
           font-weight: 600;
           cursor: pointer;
-          box-shadow: var(--shadow);
-          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: var(--shadow-lg);
+          transition: transform 0.2s;
         }
         
         .google-btn:active {
           transform: scale(0.98);
+        }
+        
+        .login-footer {
+          margin-top: 24px;
+          font-size: 12px;
+          color: rgba(255,255,255,0.6);
         }
         
         /* Header */
@@ -822,7 +1090,7 @@ export default function DayPlannerApp() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 20px 20px 16px;
+          padding: 16px 20px;
           background: var(--card);
           position: sticky;
           top: 0;
@@ -834,6 +1102,7 @@ export default function DayPlannerApp() {
           font-size: 22px;
           font-weight: 700;
           letter-spacing: -0.5px;
+          color: var(--text);
         }
         
         .header-left span {
@@ -843,9 +1112,15 @@ export default function DayPlannerApp() {
           display: block;
         }
         
+        .header-right {
+          display: flex;
+          gap: 8px;
+        }
+        
         .icon-btn {
           width: 40px;
           height: 40px;
+          min-width: 40px;
           border-radius: 50%;
           border: none;
           background: var(--bg);
@@ -861,7 +1136,7 @@ export default function DayPlannerApp() {
           background: var(--border);
         }
         
-        /* FAB - Floating Action Button */
+        /* FAB */
         .fab {
           position: fixed;
           bottom: 100px;
@@ -869,11 +1144,11 @@ export default function DayPlannerApp() {
           width: 56px;
           height: 56px;
           border-radius: 50%;
-          background: var(--text);
+          background: var(--personal);
           color: white;
           border: none;
           cursor: pointer;
-          box-shadow: var(--shadow-lg);
+          box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -931,6 +1206,7 @@ export default function DayPlannerApp() {
           white-space: nowrap;
           min-width: 90px;
           text-align: right;
+          color: var(--text);
         }
         
         .progress-breakdown {
@@ -958,7 +1234,7 @@ export default function DayPlannerApp() {
         
         /* Tasks Section */
         .tasks-section {
-          padding: 20px;
+          padding: 16px 20px 20px;
         }
         
         .section-header {
@@ -971,11 +1247,91 @@ export default function DayPlannerApp() {
         .section-header h2 {
           font-size: 16px;
           font-weight: 600;
+          color: var(--text);
+        }
+        
+        .section-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
         
         .task-count {
           font-size: 13px;
           color: var(--muted);
+        }
+        
+        .shift-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .shift-btn:active {
+          background: var(--bg);
+        }
+        
+        .shift-btn svg {
+          width: 16px;
+          height: 16px;
+        }
+        
+        /* Task Wrapper with Swipe */
+        .task-wrapper {
+          position: relative;
+          margin-bottom: 10px;
+          overflow: hidden;
+          border-radius: var(--radius);
+        }
+        
+        .task-wrapper.selected .task-item {
+          background: var(--personal-light);
+        }
+        
+        .task-actions {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 140px;
+          display: flex;
+          gap: 0;
+        }
+        
+        .action-btn {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          border: none;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 500;
+          color: white;
+        }
+        
+        .action-btn svg {
+          width: 20px;
+          height: 20px;
+        }
+        
+        .action-btn.edit {
+          background: #3B82F6;
+        }
+        
+        .action-btn.delete {
+          background: var(--danger);
         }
         
         /* Task Item */
@@ -986,15 +1342,11 @@ export default function DayPlannerApp() {
           padding: 16px;
           background: var(--card);
           border-radius: var(--radius);
-          margin-bottom: 10px;
           border-left: 4px solid var(--border);
           position: relative;
           box-shadow: var(--shadow-sm);
-          transition: box-shadow 0.2s, transform 0.2s;
-        }
-        
-        .task-item:active {
-          transform: scale(0.99);
+          transition: transform 0.15s ease-out;
+          will-change: transform;
         }
         
         .task-item.work { border-left-color: var(--work); }
@@ -1004,12 +1356,12 @@ export default function DayPlannerApp() {
           opacity: 0.55;
           background: var(--bg);
         }
+        
         .task-item.done .task-name { 
           text-decoration: line-through;
           color: var(--muted);
         }
         
-        /* Checkbox - Fixed to be perfectly round */
         .checkbox {
           width: 24px;
           height: 24px;
@@ -1027,10 +1379,6 @@ export default function DayPlannerApp() {
           flex-shrink: 0;
         }
         
-        .checkbox:hover {
-          border-color: var(--muted);
-        }
-        
         .checkbox.checked {
           background: var(--personal);
           border-color: var(--personal);
@@ -1040,12 +1388,10 @@ export default function DayPlannerApp() {
           width: 14px; 
           height: 14px; 
           color: white;
-          flex-shrink: 0;
         }
         
         .task-content { 
           flex: 1; 
-          cursor: pointer;
           min-width: 0;
         }
         
@@ -1055,6 +1401,7 @@ export default function DayPlannerApp() {
           display: block; 
           margin-bottom: 6px;
           word-wrap: break-word;
+          color: var(--text);
         }
         
         .task-meta {
@@ -1083,25 +1430,26 @@ export default function DayPlannerApp() {
           font-size: 12px;
         }
         
-        .delete-btn {
-          width: 32px;
-          height: 32px;
-          min-width: 32px;
+        .select-btn {
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
           border-radius: 50%;
-          border: none;
-          background: #FEE2E2;
-          color: #EF4444;
+          border: 2px solid var(--border);
+          background: transparent;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0;
+          font-size: 14px;
+          color: white;
+          transition: all 0.2s;
           flex-shrink: 0;
         }
         
-        .delete-btn svg {
-          width: 16px;
-          height: 16px;
+        .select-btn.selected {
+          background: var(--personal);
+          border-color: var(--personal);
         }
         
         /* Empty State */
@@ -1119,6 +1467,18 @@ export default function DayPlannerApp() {
         
         .empty-state p {
           font-size: 15px;
+          color: var(--muted);
+        }
+        
+        /* Swipe Hint */
+        .swipe-hint {
+          text-align: center;
+          padding: 8px;
+          font-size: 12px;
+          color: var(--muted);
+          background: var(--card);
+          border-radius: var(--radius-sm);
+          margin-bottom: 12px;
         }
         
         /* Bottom Nav */
@@ -1129,8 +1489,8 @@ export default function DayPlannerApp() {
           right: 0;
           width: 100%;
           background: var(--card);
-          padding: 10px 20px;
-          padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+          padding: 8px 20px;
+          padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
           display: flex;
           justify-content: space-around;
           border-top: 1px solid var(--border);
@@ -1142,7 +1502,6 @@ export default function DayPlannerApp() {
             left: 50%;
             transform: translateX(-50%);
             max-width: 480px;
-            border-radius: 20px 20px 0 0;
           }
         }
         
@@ -1161,8 +1520,8 @@ export default function DayPlannerApp() {
         }
         
         .nav-item.active { 
-          color: var(--text);
-          background: var(--bg);
+          color: var(--personal);
+          background: var(--personal-light);
         }
         
         .nav-item svg { 
@@ -1182,7 +1541,7 @@ export default function DayPlannerApp() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0,0,0,0.4);
+          background: rgba(0,0,0,0.5);
           backdrop-filter: blur(4px);
           display: flex;
           align-items: flex-end;
@@ -1223,7 +1582,7 @@ export default function DayPlannerApp() {
         .modal-header h2 { 
           font-size: 20px;
           font-weight: 700;
-          letter-spacing: -0.3px;
+          color: var(--text);
         }
         
         .close-btn {
@@ -1251,12 +1610,10 @@ export default function DayPlannerApp() {
         
         .form-group label { 
           display: block; 
-          font-size: 12px; 
+          font-size: 13px; 
           font-weight: 600; 
-          color: var(--muted); 
-          margin-bottom: 8px; 
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
+          color: var(--text-secondary); 
+          margin-bottom: 8px;
         }
         
         .form-group input[type="text"],
@@ -1269,19 +1626,29 @@ export default function DayPlannerApp() {
           font-size: 16px;
           font-family: inherit;
           background: var(--card);
+          color: var(--text);
           transition: border-color 0.2s;
+          -webkit-appearance: none;
+        }
+        
+        .form-group input::placeholder {
+          color: var(--muted);
         }
         
         .form-group input:focus,
         .form-group select:focus {
           outline: none;
-          border-color: var(--text);
+          border-color: var(--personal);
         }
         
-        .form-row, .form-row-2 {
+        .form-row {
           display: flex;
           gap: 12px;
-          margin-bottom: 20px;
+        }
+        
+        .form-row-2 {
+          display: flex;
+          gap: 12px;
         }
         
         .form-row-2 .form-group { 
@@ -1294,11 +1661,12 @@ export default function DayPlannerApp() {
           padding: 14px;
           border: 2px solid var(--border);
           border-radius: var(--radius-sm);
-          background: transparent;
+          background: var(--card);
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
+          color: var(--text-secondary);
         }
         
         .cat-btn.active.work { 
@@ -1324,11 +1692,12 @@ export default function DayPlannerApp() {
           padding: 10px 16px;
           border: 2px solid var(--border);
           border-radius: 20px;
-          background: transparent;
+          background: var(--card);
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
+          color: var(--text-secondary);
         }
         
         .preset-btn.active { 
@@ -1361,17 +1730,18 @@ export default function DayPlannerApp() {
           cursor: pointer;
         }
         
-        .slider-row span { 
+        .slider-value { 
           font-size: 14px; 
           font-weight: 600; 
           min-width: 55px;
           text-align: right;
+          color: var(--text);
         }
         
         .save-btn {
           width: 100%;
           padding: 16px;
-          background: var(--text);
+          background: var(--personal);
           color: white;
           border: none;
           border-radius: var(--radius-sm);
@@ -1384,6 +1754,40 @@ export default function DayPlannerApp() {
         
         .save-btn:active {
           transform: scale(0.98);
+        }
+        
+        /* Shift Modal */
+        .shift-modal {
+          max-height: 60vh;
+        }
+        
+        .shift-info {
+          font-size: 15px;
+          color: var(--text-secondary);
+          margin-bottom: 20px;
+        }
+        
+        .shift-buttons {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+        
+        .quick-shift-btn {
+          flex: 1;
+          padding: 12px;
+          border: 2px solid var(--border);
+          border-radius: var(--radius-sm);
+          background: var(--card);
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          color: var(--text-secondary);
+          transition: all 0.2s;
+        }
+        
+        .quick-shift-btn:active {
+          background: var(--bg);
         }
         
         /* Settings Modal */
@@ -1414,7 +1818,7 @@ export default function DayPlannerApp() {
           height: 48px;
           min-width: 48px;
           border-radius: 50%;
-          background: var(--text);
+          background: var(--personal);
           color: white;
           display: flex;
           align-items: center;
@@ -1427,6 +1831,7 @@ export default function DayPlannerApp() {
         .user-name { 
           font-weight: 600;
           font-size: 15px;
+          color: var(--text);
         }
         
         .user-email { 
@@ -1440,6 +1845,7 @@ export default function DayPlannerApp() {
           font-size: 16px;
           font-weight: 600;
           margin-bottom: 4px;
+          color: var(--text);
         }
         .section-desc { 
           font-size: 13px; 
@@ -1462,6 +1868,7 @@ export default function DayPlannerApp() {
           align-items: center;
           gap: 10px;
           transition: background 0.2s;
+          color: var(--text);
         }
         
         .export-btn:active { background: var(--border); }
@@ -1477,9 +1884,9 @@ export default function DayPlannerApp() {
         .signout-btn {
           width: 100%;
           padding: 16px;
-          background: transparent;
-          border: 2px solid #FCA5A5;
-          color: #DC2626;
+          background: var(--danger-light);
+          border: none;
+          color: var(--danger);
           border-radius: var(--radius-sm);
           font-size: 15px;
           font-weight: 600;
@@ -1487,13 +1894,9 @@ export default function DayPlannerApp() {
           transition: background 0.2s;
         }
         
-        .signout-btn:active {
-          background: #FEE2E2;
-        }
-        
         /* Calendar */
         .calendar-view { 
-          padding: 20px;
+          padding: 16px 20px;
         }
         
         .calendar-nav {
@@ -1501,12 +1904,12 @@ export default function DayPlannerApp() {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 20px;
-          padding: 0 4px;
         }
         
         .calendar-nav h2 { 
           font-size: 18px;
           font-weight: 600;
+          color: var(--text);
         }
         
         .nav-btn {
@@ -1541,7 +1944,6 @@ export default function DayPlannerApp() {
           font-size: 11px; 
           font-weight: 600; 
           color: var(--muted);
-          text-transform: uppercase;
         }
         
         .calendar-grid {
@@ -1563,21 +1965,17 @@ export default function DayPlannerApp() {
           position: relative;
         }
         
-        .cal-cell:active {
-          transform: scale(0.95);
-        }
-        
         .cal-cell.empty { 
           background: transparent;
           pointer-events: none;
         }
         
         .cal-cell.today { 
-          border: 2px solid var(--text);
+          border: 2px solid var(--personal);
         }
         
         .cal-cell.selected { 
-          background: var(--text);
+          background: var(--personal);
           color: white;
         }
         
@@ -1636,11 +2034,12 @@ export default function DayPlannerApp() {
           min-width: 100px; 
           text-align: center; 
           font-size: 15px;
+          color: var(--text);
         }
         
         /* Analytics */
         .analytics-view { 
-          padding: 20px;
+          padding: 16px 20px;
         }
         
         .stats-row {
@@ -1662,7 +2061,7 @@ export default function DayPlannerApp() {
           font-size: 22px; 
           font-weight: 700; 
           display: block;
-          letter-spacing: -0.5px;
+          color: var(--text);
         }
         
         .stat-label { 
@@ -1686,6 +2085,7 @@ export default function DayPlannerApp() {
           font-size: 15px;
           font-weight: 600;
           margin-bottom: 16px;
+          color: var(--text);
         }
         
         .bar-chart {
@@ -1693,7 +2093,6 @@ export default function DayPlannerApp() {
           justify-content: space-between;
           align-items: flex-end;
           height: 100px;
-          padding: 0 8px;
         }
         
         .bar-col {
@@ -1735,7 +2134,6 @@ export default function DayPlannerApp() {
           margin-top: 16px;
           font-size: 12px;
           color: var(--muted);
-          font-weight: 500;
         }
         
         .chart-legend span { 
@@ -1771,7 +2169,6 @@ export default function DayPlannerApp() {
         .insight-card p { 
           font-size: 14px; 
           color: var(--muted);
-          line-height: 1.5;
         }
         
         .insight-card strong { 
@@ -1788,7 +2185,9 @@ export default function DayPlannerApp() {
                 <h1>Today</h1>
                 <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
               </div>
-              <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
+              <div className="header-right">
+                <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
+              </div>
             </div>
             
             <ProgressSummary 
@@ -1801,8 +2200,22 @@ export default function DayPlannerApp() {
             <div className="tasks-section">
               <div className="section-header">
                 <h2>Tasks</h2>
-                <span className="task-count">{todayTasks.filter(t => t.status !== 'Done').length} remaining</span>
+                <div className="section-actions">
+                  {pendingCount > 0 && (
+                    <button className="shift-btn" onClick={() => setShowShiftModal(true)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                      Shift
+                    </button>
+                  )}
+                  <span className="task-count">{pendingCount} remaining</span>
+                </div>
               </div>
+              
+              {todayTasks.length > 0 && (
+                <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
+              )}
               
               {todayTasks.length === 0 ? (
                 <div className="empty-state">
@@ -1817,6 +2230,8 @@ export default function DayPlannerApp() {
                     onToggle={toggleTask}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    isSelected={selectedTasks.includes(task.id)}
+                    onSelect={handleSelectTask}
                   />
                 ))
               )}
@@ -1834,7 +2249,7 @@ export default function DayPlannerApp() {
             
             <CalendarView 
               tasks={tasks} 
-              onDateSelect={setSelectedDate}
+              onDateSelect={(d) => { setSelectedDate(d); setSelectedTasks([]); }}
               selectedDate={selectedDate}
             />
             
@@ -1847,8 +2262,22 @@ export default function DayPlannerApp() {
             <div className="tasks-section">
               <div className="section-header">
                 <h2>Tasks</h2>
-                <span className="task-count">{selectedDateTasks.length} total</span>
+                <div className="section-actions">
+                  {pendingCount > 0 && (
+                    <button className="shift-btn" onClick={() => setShowShiftModal(true)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                      Shift
+                    </button>
+                  )}
+                  <span className="task-count">{selectedDateTasks.length} total</span>
+                </div>
               </div>
+              
+              {selectedDateTasks.length > 0 && (
+                <div className="swipe-hint">← Swipe left on task for Edit / Delete</div>
+              )}
               
               {selectedDateTasks.length === 0 ? (
                 <div className="empty-state">
@@ -1863,6 +2292,8 @@ export default function DayPlannerApp() {
                     onToggle={toggleTask}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    isSelected={selectedTasks.includes(task.id)}
+                    onSelect={handleSelectTask}
                   />
                 ))
               )}
@@ -1876,23 +2307,23 @@ export default function DayPlannerApp() {
               <div className="header-left">
                 <h1>Analytics</h1>
               </div>
-              <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
+              <div className="header-right">
+                <button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button>
+              </div>
             </div>
             <AnalyticsView tasks={tasks} />
           </>
         )}
         
-        {/* FAB - Floating Action Button */}
-        <button className="fab" onClick={() => setShowModal(true)} aria-label="Add new task">
+        <button className="fab" onClick={() => setShowModal(true)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
         </button>
         
-        {/* Bottom Nav */}
         <nav className="bottom-nav">
-          <button className={`nav-item ${activeTab === 'today' ? 'active' : ''}`} onClick={() => setActiveTab('today')}>
+          <button className={`nav-item ${activeTab === 'today' ? 'active' : ''}`} onClick={() => { setActiveTab('today'); setSelectedTasks([]); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             </svg>
@@ -1923,6 +2354,18 @@ export default function DayPlannerApp() {
             onSave={handleSave}
             onClose={() => { setShowModal(false); setEditingTask(null); }}
             selectedDate={activeTab === 'calendar' ? selectedDate : today}
+          />
+        )}
+        
+        {showShiftModal && (
+          <ShiftModal 
+            onClose={() => setShowShiftModal(false)}
+            onShift={handleShift}
+            selectedCount={selectedTasks.filter(id => {
+              const task = tasks.find(t => t.id === id);
+              return task && task.status !== 'Done';
+            }).length}
+            targetDate={activeTab === 'calendar' ? selectedDate : today}
           />
         )}
         
