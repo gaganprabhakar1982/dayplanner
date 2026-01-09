@@ -27,12 +27,12 @@ import {
 // FIREBASE CONFIG - Replace with your values
 // ============================================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDy0pTEm1qxdVdqdQUQ8I7TAB6Yd2zabgs",
+  authDomain: "daily-tracker-2e4f4.firebaseapp.com",
+  projectId: "daily-tracker-2e4f4",
+  storageBucket: "daily-tracker-2e4f4.firebasestorage.app",
+  messagingSenderId: "111250357138",
+  appId: "1:111250357138:web:ebd7983f1b714b9e7e5f4b"
 };
 
 // Initialize Firebase
