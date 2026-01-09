@@ -136,7 +136,7 @@ const LoginScreen = ({ onLogin }) => (
   <div className="login-screen">
     <div className="login-content">
       <div className="login-logo">
-        <svg viewBox="0 0 48 48" fill="none">
+        <svg width="80" height="80" viewBox="0 0 48 48" fill="none">
           <rect width="48" height="48" rx="12" fill="white"/>
           <path d="M14 24L21 31L34 18" stroke="#10B981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -998,14 +998,23 @@ export default function DayPlannerApp() {
         .login-content { 
           text-align: center; 
           width: 100%; 
-          max-width: 320px; 
+          max-width: 320px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
         .login-logo { 
-          margin-bottom: 20px; 
+          width: 80px !important;
+          height: 80px !important;
+          margin-bottom: 24px;
+          flex-shrink: 0;
         }
         .login-logo svg { 
-          width: 80px; 
-          height: 80px; 
+          width: 80px !important; 
+          height: 80px !important;
+          max-width: 80px !important;
+          max-height: 80px !important;
+          display: block;
           filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); 
         }
         .login-content h1 { 
@@ -1026,6 +1035,7 @@ export default function DayPlannerApp() {
           padding: 20px; 
           margin-bottom: 32px; 
           text-align: left;
+          width: 100%;
         }
         .feature-item { 
           display: flex; 
@@ -1042,6 +1052,7 @@ export default function DayPlannerApp() {
           font-size: 18px;
           width: 24px;
           text-align: center;
+          flex-shrink: 0;
         }
         .feature-text {
           flex: 1;
@@ -1064,11 +1075,6 @@ export default function DayPlannerApp() {
         }
         .google-btn:active {
           transform: scale(0.98);
-        }
-        .login-footer { 
-          margin-top: 20px; 
-          font-size: 13px; 
-          color: rgba(255,255,255,0.7); 
         }
         
         /* Header */
