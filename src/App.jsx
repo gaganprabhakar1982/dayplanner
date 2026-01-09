@@ -131,28 +131,34 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Login Screen
+// Login Screen - Redesigned
 const LoginScreen = ({ onLogin }) => (
   <div className="login-screen">
-    <div className="login-bg">
-      <div className="login-shape shape-1"></div>
-      <div className="login-shape shape-2"></div>
-      <div className="login-shape shape-3"></div>
-    </div>
     <div className="login-content">
       <div className="login-logo">
         <svg viewBox="0 0 48 48" fill="none">
-          <rect width="48" height="48" rx="12" fill="#10B981"/>
-          <path d="M14 24L21 31L34 18" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect width="48" height="48" rx="12" fill="white"/>
+          <path d="M14 24L21 31L34 18" stroke="#10B981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
       <h1>DayPlanner</h1>
-      <p>Organize your day, track your progress</p>
+      <p className="login-tagline">Organize your day, track your progress</p>
+      
       <div className="login-features">
-        <div className="feature-item"><span>✓</span> Track work & personal tasks</div>
-        <div className="feature-item"><span>✓</span> Sync across all devices</div>
-        <div className="feature-item"><span>✓</span> Analyze your productivity</div>
+        <div className="feature-item">
+          <span className="feature-icon">📋</span>
+          <span className="feature-text">Track work & personal tasks</span>
+        </div>
+        <div className="feature-item">
+          <span className="feature-icon">🔄</span>
+          <span className="feature-text">Sync across all devices</span>
+        </div>
+        <div className="feature-item">
+          <span className="feature-icon">📊</span>
+          <span className="feature-text">Analyze your productivity</span>
+        </div>
       </div>
+      
       <button className="google-btn" onClick={onLogin}>
         <svg viewBox="0 0 24 24" width="20" height="20">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -162,7 +168,6 @@ const LoginScreen = ({ onLogin }) => (
         </svg>
         Continue with Google
       </button>
-      <p className="login-footer">Your data stays private and secure</p>
     </div>
   </div>
 );
@@ -979,23 +984,92 @@ export default function DayPlannerApp() {
         .loading-content p { color: var(--muted); font-size: 14px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Login */
-        .login-screen { width: 100%; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #065F46 0%, #047857 50%, #10B981 100%); padding: 24px; position: relative; overflow: hidden; }
-        .login-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
-        .login-shape { position: absolute; border-radius: 50%; opacity: 0.1; background: white; }
-        .shape-1 { width: 300px; height: 300px; top: -100px; right: -100px; }
-        .shape-2 { width: 200px; height: 200px; bottom: 20%; left: -80px; }
-        .shape-3 { width: 150px; height: 150px; bottom: -50px; right: 20%; }
-        .login-content { text-align: center; color: white; width: 100%; max-width: 340px; position: relative; z-index: 1; }
-        .login-logo { margin-bottom: 24px; }
-        .login-logo svg { width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2)); }
-        .login-content h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
-        .login-content > p { color: rgba(255,255,255,0.8); margin-bottom: 32px; font-size: 16px; }
-        .login-features { text-align: left; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; margin-bottom: 32px; }
-        .feature-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; font-size: 14px; color: rgba(255,255,255,0.9); }
-        .feature-item span { width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-        .google-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 16px; background: white; color: var(--text); border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
-        .login-footer { margin-top: 24px; font-size: 12px; color: rgba(255,255,255,0.6); }
+        /* Login - Redesigned */
+        .login-screen { 
+          width: 100%; 
+          min-height: 100vh; 
+          min-height: 100dvh; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          background: linear-gradient(180deg, #10B981 0%, #059669 100%); 
+          padding: 32px 24px; 
+        }
+        .login-content { 
+          text-align: center; 
+          width: 100%; 
+          max-width: 320px; 
+        }
+        .login-logo { 
+          margin-bottom: 20px; 
+        }
+        .login-logo svg { 
+          width: 80px; 
+          height: 80px; 
+          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); 
+        }
+        .login-content h1 { 
+          font-size: 28px; 
+          font-weight: 700; 
+          color: white; 
+          margin-bottom: 8px; 
+        }
+        .login-tagline { 
+          font-size: 15px; 
+          color: rgba(255,255,255,0.85); 
+          margin-bottom: 32px; 
+        }
+        .login-features { 
+          background: rgba(255,255,255,0.15); 
+          backdrop-filter: blur(10px); 
+          border-radius: 16px; 
+          padding: 20px; 
+          margin-bottom: 32px; 
+          text-align: left;
+        }
+        .feature-item { 
+          display: flex; 
+          align-items: center; 
+          gap: 12px; 
+          padding: 10px 0; 
+          color: white;
+          font-size: 14px;
+        }
+        .feature-item:not(:last-child) {
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-icon { 
+          font-size: 18px;
+          width: 24px;
+          text-align: center;
+        }
+        .feature-text {
+          flex: 1;
+        }
+        .google-btn { 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          gap: 12px; 
+          width: 100%; 
+          padding: 16px 24px; 
+          background: white; 
+          color: #1A1A1A; 
+          border: none; 
+          border-radius: 12px; 
+          font-size: 16px; 
+          font-weight: 600; 
+          cursor: pointer; 
+          box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+        }
+        .google-btn:active {
+          transform: scale(0.98);
+        }
+        .login-footer { 
+          margin-top: 20px; 
+          font-size: 13px; 
+          color: rgba(255,255,255,0.7); 
+        }
         
         /* Header */
         .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--card); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border); }
@@ -1102,8 +1176,31 @@ export default function DayPlannerApp() {
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .modal-header h2 { font-size: 20px; font-weight: 700; }
-        .close-btn { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: var(--bg); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .close-btn svg { width: 18px; height: 18px; color: var(--muted); }
+        .close-btn { 
+          width: 36px; 
+          height: 36px; 
+          min-width: 36px; 
+          border-radius: 50%; 
+          background: var(--bg); 
+          border: 1px solid var(--border); 
+          cursor: pointer; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center;
+          padding: 0;
+          flex-shrink: 0;
+        }
+        .close-btn::before {
+          content: "✕";
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--muted);
+          line-height: 1;
+        }
+        .close-btn:active {
+          background: var(--border);
+        }
+        .close-btn svg { display: none; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
         .form-group input[type="text"], .form-group input[type="date"], .form-group input[type="number"], .form-group select { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; font-family: inherit; background: var(--card); color: var(--text); }
