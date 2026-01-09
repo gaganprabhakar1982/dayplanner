@@ -131,35 +131,77 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Login Screen - Redesigned
+// Login Screen - Redesigned with inline styles for reliability
 const LoginScreen = ({ onLogin }) => (
-  <div className="login-screen">
-    <div className="login-content">
-      <div className="login-logo">
-        <svg width="80" height="80" viewBox="0 0 48 48" fill="none">
+  <div style={{
+    width: '100%',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(180deg, #10B981 0%, #059669 100%)',
+    padding: '40px 24px'
+  }}>
+    <div style={{
+      textAlign: 'center',
+      width: '100%',
+      maxWidth: '320px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
+    }}>
+      <div style={{ marginBottom: '24px' }}>
+        <svg width="80" height="80" viewBox="0 0 48 48" fill="none" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))' }}>
           <rect width="48" height="48" rx="12" fill="white"/>
           <path d="M14 24L21 31L34 18" stroke="#10B981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <h1>DayPlanner</h1>
-      <p className="login-tagline">Organize your day, track your progress</p>
+      <h1 style={{ fontSize: '28px', fontWeight: '700', color: 'white', marginBottom: '8px' }}>DayPlanner</h1>
+      <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.85)', marginBottom: '32px' }}>Organize your day, track your progress</p>
       
-      <div className="login-features">
-        <div className="feature-item">
-          <span className="feature-icon">📋</span>
-          <span className="feature-text">Track work & personal tasks</span>
+      <div style={{
+        background: 'rgba(255,255,255,0.15)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        padding: '16px 20px',
+        marginBottom: '32px',
+        textAlign: 'left',
+        width: '100%',
+        border: '1px solid rgba(255,255,255,0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', color: 'white', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+          <span style={{ fontSize: '20px', width: '28px', textAlign: 'center' }}>📋</span>
+          <span style={{ fontWeight: '500' }}>Track work & personal tasks</span>
         </div>
-        <div className="feature-item">
-          <span className="feature-icon">🔄</span>
-          <span className="feature-text">Sync across all devices</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', color: 'white', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+          <span style={{ fontSize: '20px', width: '28px', textAlign: 'center' }}>🔄</span>
+          <span style={{ fontWeight: '500' }}>Sync across all devices</span>
         </div>
-        <div className="feature-item">
-          <span className="feature-icon">📊</span>
-          <span className="feature-text">Analyze your productivity</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', color: 'white', fontSize: '14px' }}>
+          <span style={{ fontSize: '20px', width: '28px', textAlign: 'center' }}>📊</span>
+          <span style={{ fontWeight: '500' }}>Analyze your productivity</span>
         </div>
       </div>
       
-      <button className="google-btn" onClick={onLogin}>
+      <button onClick={onLogin} style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        width: '100%',
+        padding: '16px 24px',
+        background: 'white',
+        color: '#1A1A1A',
+        border: 'none',
+        borderRadius: '12px',
+        fontSize: '16px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+        fontFamily: 'inherit'
+      }}>
         <svg viewBox="0 0 24 24" width="20" height="20">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -984,98 +1026,7 @@ export default function DayPlannerApp() {
         .loading-content p { color: var(--muted); font-size: 14px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Login - Redesigned */
-        .login-screen { 
-          width: 100%; 
-          min-height: 100vh; 
-          min-height: 100dvh; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          background: linear-gradient(180deg, #10B981 0%, #059669 100%); 
-          padding: 32px 24px; 
-        }
-        .login-content { 
-          text-align: center; 
-          width: 100%; 
-          max-width: 320px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-        .login-logo { 
-          width: 80px !important;
-          height: 80px !important;
-          margin-bottom: 24px;
-          flex-shrink: 0;
-        }
-        .login-logo svg { 
-          width: 80px !important; 
-          height: 80px !important;
-          max-width: 80px !important;
-          max-height: 80px !important;
-          display: block;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); 
-        }
-        .login-content h1 { 
-          font-size: 28px; 
-          font-weight: 700; 
-          color: white; 
-          margin-bottom: 8px; 
-        }
-        .login-tagline { 
-          font-size: 15px; 
-          color: rgba(255,255,255,0.85); 
-          margin-bottom: 32px; 
-        }
-        .login-features { 
-          background: rgba(255,255,255,0.15); 
-          backdrop-filter: blur(10px); 
-          border-radius: 16px; 
-          padding: 20px; 
-          margin-bottom: 32px; 
-          text-align: left;
-          width: 100%;
-        }
-        .feature-item { 
-          display: flex; 
-          align-items: center; 
-          gap: 12px; 
-          padding: 10px 0; 
-          color: white;
-          font-size: 14px;
-        }
-        .feature-item:not(:last-child) {
-          border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .feature-icon { 
-          font-size: 18px;
-          width: 24px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .feature-text {
-          flex: 1;
-        }
-        .google-btn { 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          gap: 12px; 
-          width: 100%; 
-          padding: 16px 24px; 
-          background: white; 
-          color: #1A1A1A; 
-          border: none; 
-          border-radius: 12px; 
-          font-size: 16px; 
-          font-weight: 600; 
-          cursor: pointer; 
-          box-shadow: 0 4px 14px rgba(0,0,0,0.15);
-        }
-        .google-btn:active {
-          transform: scale(0.98);
-        }
+        /* Login styles now inline in component */
         
         /* Header */
         .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--card); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border); }
