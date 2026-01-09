@@ -27,12 +27,12 @@ import {
 // FIREBASE CONFIG - Replace with your values
 // ============================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDy0pTEm1qxdVdqdQUQ8I7TAB6Yd2zabgs",
-  authDomain: "daily-tracker-2e4f4.firebaseapp.com",
-  projectId: "daily-tracker-2e4f4",
-  storageBucket: "daily-tracker-2e4f4.firebasestorage.app",
-  messagingSenderId: "111250357138",
-  appId: "1:111250357138:web:ebd7983f1b714b9e7e5f4b"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 // Initialize Firebase
@@ -167,39 +167,49 @@ const LoginScreen = ({ onLogin }) => (
   </div>
 );
 
-// Progress Summary with remaining hours
+// Progress Summary - Compact Clear Design (same space)
 const ProgressSummary = ({ workDone, workTotal, personalDone, personalTotal, settings }) => {
   const totalDone = workDone + personalDone;
-  const totalAll = workTotal + personalTotal;
-  const percent = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+  const totalPlanned = workTotal + personalTotal;
+  const percent = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
   
-  const workRemaining = Math.max(0, settings.workLimit - workTotal);
-  const personalRemaining = Math.max(0, settings.personalLimit - personalTotal);
-  
-  const workOverLimit = workTotal > settings.workLimit;
-  const personalOverLimit = personalTotal > settings.personalLimit;
+  // Capacity calculations
+  const workFree = Math.max(0, settings.workLimit - workTotal);
+  const personalFree = Math.max(0, settings.personalLimit - personalTotal);
+  const workOver = workTotal > settings.workLimit;
+  const personalOver = personalTotal > settings.personalLimit;
   
   return (
     <div className="progress-summary">
+      {/* Main progress row */}
       <div className="progress-main">
-        <div className="progress-bar-bg">
-          <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
-        </div>
-        <span className="progress-text">{formatTime(totalDone)} / {formatTime(totalAll)}</span>
+        <span className="progress-label">
+          <strong>{formatTime(totalDone)}</strong> done of <strong>{formatTime(totalPlanned)}</strong> planned
+        </span>
+        <span className="progress-percent">{percent}%</span>
       </div>
-      <div className="progress-breakdown">
-        <div className="breakdown-item work">
-          <span className="dot"></span>
-          <span>Work: {formatTime(workDone)}/{formatTime(workTotal)}</span>
-          <span className={`remaining ${workOverLimit ? 'over' : ''}`}>
-            {workOverLimit ? `(${formatTime(workTotal - settings.workLimit)} over)` : `(${formatTime(workRemaining)} left)`}
+      <div className="progress-bar-bg">
+        <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
+      </div>
+      
+      {/* Category rows */}
+      <div className="category-rows">
+        <div className="category-row">
+          <span className="cat-left">
+            <span className="cat-dot work"></span>
+            <span className="cat-text">Work: {formatTime(workDone)}/{formatTime(workTotal)} done</span>
+          </span>
+          <span className={`cat-right ${workOver ? 'over' : workFree === 0 ? 'full' : ''}`}>
+            {workOver ? `${formatTime(workTotal - settings.workLimit)} over!` : workFree === 0 ? 'At limit' : `Can add ${formatTime(workFree)}`}
           </span>
         </div>
-        <div className="breakdown-item personal">
-          <span className="dot"></span>
-          <span>Personal: {formatTime(personalDone)}/{formatTime(personalTotal)}</span>
-          <span className={`remaining ${personalOverLimit ? 'over' : ''}`}>
-            {personalOverLimit ? `(${formatTime(personalTotal - settings.personalLimit)} over)` : `(${formatTime(personalRemaining)} left)`}
+        <div className="category-row">
+          <span className="cat-left">
+            <span className="cat-dot personal"></span>
+            <span className="cat-text">Personal: {formatTime(personalDone)}/{formatTime(personalTotal)} done</span>
+          </span>
+          <span className={`cat-right ${personalOver ? 'over' : personalFree === 0 ? 'full' : ''}`}>
+            {personalOver ? `${formatTime(personalTotal - settings.personalLimit)} over!` : personalFree === 0 ? 'At limit' : `Can add ${formatTime(personalFree)}`}
           </span>
         </div>
       </div>
@@ -1005,19 +1015,25 @@ export default function DayPlannerApp() {
         .fab svg { width: 24px; height: 24px; }
         @media (min-width: 481px) { .fab { right: calc(50% - 240px + 20px); } }
         
-        /* Progress Summary */
-        .progress-summary { padding: 16px 20px; background: var(--card); border-bottom: 1px solid var(--border); }
-        .progress-main { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-        .progress-bar-bg { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--work) 0%, var(--personal) 100%); border-radius: 5px; transition: width 0.4s; }
-        .progress-text { font-size: 14px; font-weight: 600; white-space: nowrap; }
-        .progress-breakdown { display: flex; flex-direction: column; gap: 6px; }
-        .breakdown-item { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-        .breakdown-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .breakdown-item.work .dot { background: var(--work); }
-        .breakdown-item.personal .dot { background: var(--personal); }
-        .breakdown-item .remaining { margin-left: auto; font-weight: 500; color: var(--personal); }
-        .breakdown-item .remaining.over { color: var(--danger); }
+        /* Progress Summary - Compact Clear Design */
+        .progress-summary { padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--border); }
+        .progress-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .progress-label { font-size: 13px; color: var(--text-secondary); }
+        .progress-label strong { color: var(--text); font-weight: 600; }
+        .progress-percent { font-size: 14px; font-weight: 700; color: var(--personal); }
+        .progress-bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--work) 0%, var(--personal) 100%); border-radius: 4px; transition: width 0.4s; }
+        
+        .category-rows { display: flex; flex-direction: column; gap: 6px; }
+        .category-row { display: flex; justify-content: space-between; align-items: center; }
+        .cat-left { display: flex; align-items: center; gap: 8px; }
+        .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .cat-dot.work { background: var(--work); }
+        .cat-dot.personal { background: var(--personal); }
+        .cat-text { font-size: 12px; color: var(--text-secondary); }
+        .cat-right { font-size: 12px; font-weight: 600; color: var(--personal); }
+        .cat-right.full { color: var(--work); }
+        .cat-right.over { color: var(--danger); }
         
         /* Mini Progress (Calendar) */
         .mini-progress { margin: 0 20px 16px; padding: 12px 16px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
