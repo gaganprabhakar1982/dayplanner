@@ -175,7 +175,7 @@ const LoginScreen = ({ onLogin }) => (
       <h1 style={{ fontSize: '28px', fontWeight: '700', color: 'white', marginBottom: '8px' }}>DayPlanner</h1>
       <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.85)', marginBottom: '32px' }}>Organize your day, track your progress</p>
       <div style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', borderRadius: '16px', padding: '16px 20px', marginBottom: '32px', textAlign: 'left', width: '100%', border: '1px solid rgba(255,255,255,0.2)' }}>
-        {['ðŸ“‹ Track work & personal tasks', 'ðŸ”„ Sync across all devices', 'ðŸ“Š Analyze your productivity'].map((text, i) => (
+        {['📋 Track work & personal tasks', '🔄 Sync across all devices', '📊 Analyze your productivity'].map((text, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', color: 'white', fontSize: '14px', borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
             <span style={{ fontSize: '20px', width: '28px', textAlign: 'center' }}>{text.slice(0,2)}</span>
             <span style={{ fontWeight: '500' }}>{text.slice(3)}</span>
@@ -197,8 +197,8 @@ const Sidebar = ({ activeTab, onTabChange, onSettingsClick, user }) => (
       <span>DayPlanner</span>
     </div>
     <nav className="sidebar-nav">
-      {[{id:'today',icon:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',label:'Today',key:'T'},{id:'calendar',icon:'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18',label:'Calendar',key:'C'},{id:'analytics',icon:'M18 20V10M12 20V4M6 20v-6',label:'Analytics',key:'A'}].map(item => (
-        <button key={item.id} className={`sidebar-item ${activeTab === item.id ? 'active' : ''}`} onClick={() => onTabChange(item.id)}>
+      {[{id:'today',icon:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',label:'Today',key:'T'},{id:'calendar',icon:'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18',label:'Calendar',key:'C'},{id:'analytics',icon:'M18 20V10M12 20V4M6 20v-6',label:'Analytics',key:'A'},{id:'parked',icon:'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',label:'Parked',key:'P'}].map(item => (
+        <button key={item.id} className={`sidebar-item ${activeTab === item.id ? 'active' : ''} ${item.id === 'parked' ? 'parked' : ''}`} onClick={() => onTabChange(item.id)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d={item.icon}/></svg>
           <span>{item.label}</span>
           <span className="shortcut-hint">{item.key}</span>
@@ -207,7 +207,7 @@ const Sidebar = ({ activeTab, onTabChange, onSettingsClick, user }) => (
     </nav>
     <div className="sidebar-footer">
       <button className="sidebar-item" onClick={onSettingsClick}>
-        <span className="sidebar-emoji">âš™ï¸</span><span>Settings</span><span className="shortcut-hint">S</span>
+        <span className="sidebar-emoji">⚙️</span><span>Settings</span><span className="shortcut-hint">S</span>
       </button>
       {user && (
         <div className="sidebar-user">
@@ -268,7 +268,7 @@ const MiniProgress = ({ tasks, settings }) => {
   );
 };
 
-const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelected, onSelect, isDesktop, isTouchDevice }) => {
+const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelected, onSelect, isDesktop, isTouchDevice, onSchedule }) => {
   const [showHoverActions, setShowHoverActions] = useState(false);
   const startX = useRef(0);
   const currentX = useRef(0);
@@ -292,8 +292,9 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelecte
   
   return (
     <div className={`task-wrapper ${isSelected ? 'selected' : ''}`} onMouseEnter={() => !isTouchDevice && setShowHoverActions(true)} onMouseLeave={() => { setShowHoverActions(false); resetSwipe(); }}>
-      {!isDesktop && !isDone && (
+      {!isDesktop && (
         <div className="task-actions">
+          {!task.date && onSchedule && <button className="action-btn schedule" onClick={() => { onSchedule(task); resetSwipe(); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>Schedule</button>}
           <button className="action-btn edit" onClick={() => { onEdit(task); resetSwipe(); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>Edit</button>
           <button className="action-btn delete" onClick={() => { onDelete(task.id); resetSwipe(); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>Delete</button>
         </div>
@@ -304,18 +305,23 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelecte
             {isDone && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
           </button>
         )}
-        {isSelectionMode && !isDone && <div className={`select-circle ${isSelected ? 'selected' : ''}`}>{isSelected ? 'âœ“' : ''}</div>}
+        {isSelectionMode && !isDone && <div className={`select-circle ${isSelected ? 'selected' : ''}`}>{isSelected ? '✓' : ''}</div>}
         {isSelectionMode && isDone && <div className="checkbox checked disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></div>}
         <div className="task-content">
           <span className="task-name">{task.task}</span>
           <div className="task-meta">
             <span className={`category-dot ${task.category.toLowerCase()}`}></span>
             <span className="time-badge">{formatTime(task.timeRequired)}</span>
-            {task.repeat && task.repeat !== 'none' && <span className="repeat-badge">ðŸ”</span>}
+            {task.repeat && task.repeat !== 'none' && <span className="repeat-badge">🔁</span>}
           </div>
         </div>
-        {!isSelectionMode && !isTouchDevice && showHoverActions && !isDone && (
+        {!isSelectionMode && !isTouchDevice && showHoverActions && (
           <div className="hover-actions">
+            {!task.date && onSchedule && (
+              <button className="hover-btn schedule" onClick={(e) => { e.stopPropagation(); onSchedule(task); }} title="Schedule">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+            )}
             <button className="hover-btn edit" onClick={(e) => { e.stopPropagation(); onEdit(task); }} title="Edit">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
             </button>
@@ -333,7 +339,7 @@ const SelectionHeader = ({ selectedCount, onCancel, onMove }) => (
   <div className="selection-header">
     <button className="cancel-btn" onClick={onCancel}>Cancel</button>
     <span className="selection-count">{selectedCount} selected</span>
-    <button className="move-btn" onClick={onMove} disabled={selectedCount === 0}>Move â†’</button>
+    <button className="move-btn" onClick={onMove} disabled={selectedCount === 0}>Move →</button>
   </div>
 );
 
@@ -359,7 +365,7 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><h2>{task ? 'Edit Task' : 'New Task'}</h2><button className="close-btn" onClick={onClose}></button></div>
         <div className="form-group"><label>Task Name</label><input type="text" placeholder="What needs to be done?" value={formData.task} onChange={e => setFormData({...formData, task: e.target.value})} autoFocus /></div>
-        <div className="form-group"><label>Category</label><div className="form-row"><button className={`cat-btn ${formData.category === 'Work' ? 'active work' : ''}`} onClick={() => setFormData({...formData, category: 'Work'})}>ðŸ’¼ Work</button><button className={`cat-btn ${formData.category === 'Personal' ? 'active personal' : ''}`} onClick={() => setFormData({...formData, category: 'Personal'})}>ðŸ  Personal</button></div></div>
+        <div className="form-group"><label>Category</label><div className="form-row"><button className={`cat-btn ${formData.category === 'Work' ? 'active work' : ''}`} onClick={() => setFormData({...formData, category: 'Work'})}>💼 Work</button><button className={`cat-btn ${formData.category === 'Personal' ? 'active personal' : ''}`} onClick={() => setFormData({...formData, category: 'Personal'})}>🏠 Personal</button></div></div>
         <div className="form-group"><label>Duration</label><div className="time-presets">{timePresets.map(t => (<button key={t} className={`preset-btn ${formData.timeRequired === t ? 'active' : ''}`} onClick={() => setFormData({...formData, timeRequired: t})}>{formatTime(t)}</button>))}</div><div className="slider-row"><input type="range" min="5" max="240" step="5" value={formData.timeRequired} onChange={e => setFormData({...formData, timeRequired: parseInt(e.target.value)})} /><span className="slider-value">{formatTime(formData.timeRequired)}</span></div></div>
         <div className="form-row-2"><div className="form-group"><label>Start Date</label><input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></div><div className="form-group"><label>Repeat</label><select value={formData.repeat} onChange={e => setFormData({...formData, repeat: e.target.value})}>{repeatOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></div></div>
         {formData.repeat !== 'none' && !task && (
@@ -374,8 +380,9 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
   );
 };
 
-const MoveModal = ({ onClose, onMove, selectedCount, targetDate }) => {
-  const tomorrow = getNextDay(targetDate);
+const MoveModal = ({ onClose, onMove, onPark, selectedCount, targetDate }) => {
+  const today = getTodayStr();
+  const tomorrow = getNextDay(today);
   const dayAfter = getNextDay(tomorrow);
   useEffect(() => { const handleKey = (e) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', handleKey); return () => window.removeEventListener('keydown', handleKey); }, [onClose]);
   return (
@@ -385,6 +392,14 @@ const MoveModal = ({ onClose, onMove, selectedCount, targetDate }) => {
         <p className="move-info">Move {selectedCount} task{selectedCount > 1 ? 's' : ''} to:</p>
         <div className="quick-dates"><button className="quick-date-btn" onClick={() => onMove(tomorrow)}>Tomorrow</button><button className="quick-date-btn" onClick={() => onMove(dayAfter)}>{formatDate(dayAfter)}</button></div>
         <div className="form-group"><label>Or pick a date:</label><input type="date" onChange={e => onMove(e.target.value)} min={targetDate} /></div>
+        <div className="park-divider">OR</div>
+        <div className="park-section-subtle">
+          <button className="park-btn-subtle" onClick={onPark}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Park for Later
+          </button>
+          <p className="park-description-subtle">Save without scheduling</p>
+        </div>
       </div>
     </div>
   );
@@ -499,14 +514,14 @@ const AnalyticsView = ({ tasks }) => {
         <span className="big-number">{todayDone}/{todayTotal}</span>
         <span className="big-label">tasks completed today</span>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '12px' }}>
-          <span style={{ fontSize: '13px', color: '#047857' }}>ðŸ’¼ {formatTime(todayWorkDone)} work</span>
-          <span style={{ fontSize: '13px', color: '#047857' }}>ðŸ  {formatTime(todayPersonalDone)} personal</span>
+          <span style={{ fontSize: '13px', color: '#047857' }}>💼 {formatTime(todayWorkDone)} work</span>
+          <span style={{ fontSize: '13px', color: '#047857' }}>🏠 {formatTime(todayPersonalDone)} personal</span>
         </div>
       </div>
       
       <div className="stats-row">
         <div className="stat-card">
-          <span className="stat-value">ðŸ”¥ {streak}</span>
+          <span className="stat-value">🔥 {streak}</span>
           <span className="stat-label">Consecutive days with all tasks done</span>
         </div>
         <div className="stat-card">
@@ -540,7 +555,7 @@ const AnalyticsView = ({ tasks }) => {
       </div>
       
       <div className="insight-card">
-        <span className="insight-icon">ðŸ“Š</span>
+        <span className="insight-icon">📊</span>
         <div>
           <p style={{ marginBottom: '4px' }}>Based on your history, <strong>{dayNames[bestDayIndex]}</strong> is when you complete the most tasks.</p>
           <p style={{ fontSize: '12px', color: 'var(--muted)' }}>Plan important work on this day for better results.</p>
@@ -557,6 +572,8 @@ export default function DayPlannerApp() {
   const [tasks, setTasks] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [activeTab, setActiveTab] = useState('today');
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [taskToSchedule, setTaskToSchedule] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -564,6 +581,9 @@ export default function DayPlannerApp() {
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState([]);
+  const [isPanelSelectionMode, setIsPanelSelectionMode] = useState(false);
+  const [panelSelectedTasks, setPanelSelectedTasks] = useState([]);
+  const [expandedSections, setExpandedSections] = useState({});
   const { isDesktop, isTouchDevice } = useResponsive();
 
   useEffect(() => { const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); }); return unsub; }, []);
@@ -580,6 +600,7 @@ export default function DayPlannerApp() {
         case 't': e.preventDefault(); setActiveTab('today'); break;
         case 'c': e.preventDefault(); setActiveTab('calendar'); break;
         case 'a': e.preventDefault(); setActiveTab('analytics'); break;
+        case 'p': e.preventDefault(); setActiveTab('parked'); break;
         case 's': e.preventDefault(); setShowSettings(true); break;
         case 'escape': if (isSelectionMode) { setIsSelectionMode(false); setSelectedTasks([]); } break;
       }
@@ -619,12 +640,24 @@ export default function DayPlannerApp() {
   const handleSelectTask = (taskId) => setSelectedTasks(prev => prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]);
   const enterSelectionMode = () => { setIsSelectionMode(true); setSelectedTasks([]); };
   const exitSelectionMode = () => { setIsSelectionMode(false); setSelectedTasks([]); };
-  const handleMove = async (newDate) => { const batch = writeBatch(db); for (const taskId of selectedTasks) batch.update(doc(db, 'users', user.uid, 'tasks', taskId), { date: newDate }); await batch.commit(); setShowMoveModal(false); exitSelectionMode(); };
+  const handleMove = async (newDate) => { const batch = writeBatch(db); const tasksToMove = isPanelSelectionMode ? panelSelectedTasks : selectedTasks; for (const taskId of tasksToMove) batch.update(doc(db, 'users', user.uid, 'tasks', taskId), { date: newDate }); await batch.commit(); setShowMoveModal(false); exitSelectionMode(); if (isPanelSelectionMode) { setIsPanelSelectionMode(false); setPanelSelectedTasks([]); } };
+  const handlePark = async () => { const batch = writeBatch(db); const tasksToMove = isPanelSelectionMode ? panelSelectedTasks : selectedTasks; for (const taskId of tasksToMove) batch.update(doc(db, 'users', user.uid, 'tasks', taskId), { date: null }); await batch.commit(); setShowMoveModal(false); exitSelectionMode(); if (isPanelSelectionMode) { setIsPanelSelectionMode(false); setPanelSelectedTasks([]); } };
+  const handleScheduleTask = (task) => { setTaskToSchedule(task); setShowScheduleModal(true); };
+  const handleScheduleConfirm = async (newDate) => { if (taskToSchedule) { await updateDoc(doc(db, 'users', user.uid, 'tasks', taskToSchedule.id), { date: newDate }); setShowScheduleModal(false); setTaskToSchedule(null); } };
+  const handleShiftSingleTask = (task) => { setSelectedTasks([task.id]); setShowMoveModal(true); };
+  const togglePanelSelectionMode = () => { 
+    setIsPanelSelectionMode(!isPanelSelectionMode); 
+    if (isPanelSelectionMode) setPanelSelectedTasks([]); 
+  };
+  const handlePanelTaskSelect = (taskId) => setPanelSelectedTasks(prev => prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]);
+  const handlePanelShift = () => { setSelectedTasks(panelSelectedTasks); setShowMoveModal(true); };
+  const toggleSectionExpansion = (sectionKey) => setExpandedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
   const navigateDate = (dir) => { const current = parseLocalDate(selectedDate); current.setDate(current.getDate() + dir); setSelectedDate(dateToStr(current)); };
 
   const today = getTodayStr();
   const currentDateTasks = sortTasks(tasks.filter(t => t.date === (activeTab === 'today' ? today : selectedDate)));
   const selectedDateTasks = sortTasks(tasks.filter(t => t.date === selectedDate));
+  const parkedTasks = sortTasks(tasks.filter(t => t.date === null || t.date === undefined));
   const workTasks = currentDateTasks.filter(t => t.category === 'Work');
   const personalTasks = currentDateTasks.filter(t => t.category === 'Personal');
   const workDone = workTasks.filter(t => t.status === 'Done').reduce((s, t) => s + t.timeRequired, 0);
@@ -647,9 +680,9 @@ export default function DayPlannerApp() {
           </div>
         </div>
       )}
-      {taskList.length > 0 && !isSelectionMode && showSwipeHint && !isDesktop && <div className="swipe-hint">â† Swipe left for Edit / Delete</div>}
+      {taskList.length > 0 && !isSelectionMode && showSwipeHint && !isDesktop && <div className="swipe-hint">← Swipe left for Edit / Delete</div>}
       {isSelectionMode && <div className="swipe-hint">Tap incomplete tasks to select</div>}
-      {taskList.length === 0 ? <div className="empty-state"><div className="empty-icon">ðŸ“‹</div><p>No tasks</p></div> : taskList.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTask} onEdit={handleEdit} onDelete={handleDelete} isSelectionMode={isSelectionMode} isSelected={selectedTasks.includes(task.id)} onSelect={handleSelectTask} isDesktop={isDesktop} isTouchDevice={isTouchDevice} />)}
+      {taskList.length === 0 ? <div className="empty-state"><div className="empty-icon">📋</div><p>No tasks</p></div> : taskList.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTask} onEdit={handleEdit} onDelete={handleDelete} isSelectionMode={isSelectionMode} isSelected={selectedTasks.includes(task.id)} onSelect={handleSelectTask} isDesktop={isDesktop} isTouchDevice={isTouchDevice} onSchedule={handleScheduleTask} />)}
     </div>
   );
 
@@ -665,7 +698,7 @@ export default function DayPlannerApp() {
         .app{width:100%;max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:90px}
         @media(min-width:1024px){.app{max-width:none;margin:0;padding-bottom:0;flex:1}.main-content{display:flex;flex:1}.primary-panel{flex:1;min-width:400px;background:var(--bg);overflow-y:auto;height:100vh}.secondary-panel{width:320px;min-width:320px;background:var(--card);padding:24px;overflow-y:auto;height:100vh;flex-shrink:0;border-left:1px solid var(--border)}.bottom-nav{display:none!important}.fab{bottom:32px;right:32px}}
         .sidebar{display:none}
-        @media(min-width:1024px){.sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 12px;flex-shrink:0;height:100vh;position:sticky;top:0}.sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:24px}.sidebar-logo svg{width:28px;height:28px}.sidebar-logo span{font-size:16px;font-weight:700}.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:4px}.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-weight:500;color:var(--text-secondary);text-align:left;transition:all 0.15s;font-family:inherit}.sidebar-item:hover{background:var(--bg);color:var(--text)}.sidebar-item.active{background:var(--personal-light);color:var(--personal)}.sidebar-item svg{width:18px;height:18px;flex-shrink:0}.sidebar-item .sidebar-emoji{font-size:16px;width:18px;text-align:center}.shortcut-hint{margin-left:auto;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px;font-weight:600}.sidebar-item.active .shortcut-hint{background:rgba(16,185,129,0.2)}.sidebar-footer{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}.sidebar-user{display:flex;align-items:center;gap:10px;padding:10px;margin-top:8px}.sidebar-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover}.sidebar-avatar-placeholder{width:32px;height:32px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}.sidebar-username{font-size:13px;font-weight:500}}
+        @media(min-width:1024px){.sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 12px;flex-shrink:0;height:100vh;position:sticky;top:0}.sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:24px}.sidebar-logo svg{width:28px;height:28px}.sidebar-logo span{font-size:16px;font-weight:700}.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:4px}.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-weight:500;color:var(--text-secondary);text-align:left;transition:all 0.15s;font-family:inherit}.sidebar-item:hover{background:var(--bg);color:var(--text)}.sidebar-item.active{background:var(--personal-light);color:var(--personal)}.sidebar-item.parked:hover{color:#8B5CF6}.sidebar-item.parked.active{background:#EDE9FE;color:#8B5CF6}.sidebar-item svg{width:18px;height:18px;flex-shrink:0}.sidebar-item .sidebar-emoji{font-size:16px;width:18px;text-align:center}.shortcut-hint{margin-left:auto;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px;font-weight:600}.sidebar-item.active .shortcut-hint{background:rgba(16,185,129,0.2)}.sidebar-item.parked.active .shortcut-hint{background:rgba(139,92,246,0.2)}.sidebar-footer{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}.sidebar-user{display:flex;align-items:center;gap:10px;padding:10px;margin-top:8px}.sidebar-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover}.sidebar-avatar-placeholder{width:32px;height:32px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}.sidebar-username{font-size:13px;font-weight:500}}
         .loading-screen{width:100%;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}.loading-content{text-align:center}.loading-logo{margin-bottom:24px}.loading-logo svg{width:64px;height:64px}.loading-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--personal);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}.loading-content p{color:var(--muted);font-size:14px}@keyframes spin{to{transform:rotate(360deg)}}
         .header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:var(--card);position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border)}.header-left h1{font-size:22px;font-weight:700}.header-left span{font-size:13px;color:var(--muted)}.icon-btn{width:40px;height:40px;min-width:40px;border-radius:50%;border:none;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px}
         .selection-header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--blue-light);border-bottom:1px solid var(--blue);position:sticky;top:0;z-index:50}.cancel-btn{padding:8px 16px;background:transparent;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer}.selection-count{font-size:14px;font-weight:600}.move-btn{padding:8px 16px;background:var(--blue);border:none;border-radius:8px;color:white;font-size:14px;font-weight:600;cursor:pointer}.move-btn:disabled{opacity:0.5}
@@ -673,18 +706,18 @@ export default function DayPlannerApp() {
         .progress-summary{padding:14px 20px;background:var(--card);border-bottom:1px solid var(--border)}.progress-main{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.progress-label{font-size:13px;color:var(--text-secondary)}.progress-label strong{color:var(--text);font-weight:600}.progress-percent{font-size:14px;font-weight:700;color:var(--personal)}.progress-bar-bg{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:12px}.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--work) 0%,var(--personal) 100%);border-radius:4px;transition:width 0.4s}.category-rows{display:flex;flex-direction:column;gap:6px}.category-row{display:flex;justify-content:space-between;align-items:center}.cat-left{display:flex;align-items:center;gap:8px}.cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.cat-dot.work{background:var(--work)}.cat-dot.personal{background:var(--personal)}.cat-text{font-size:12px;color:var(--text-secondary)}.cat-right{font-size:12px;font-weight:600;color:var(--personal)}.cat-right.full{color:var(--work)}.cat-right.over{color:var(--danger)}
         .mini-progress{margin:0 20px 16px;padding:12px 16px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm)}.mini-stats{display:flex;justify-content:space-around}.mini-stat{text-align:center}.mini-value{font-size:14px;font-weight:600;display:block}.mini-label{font-size:10px;color:var(--muted);text-transform:uppercase}.mini-stat.work .mini-value{color:var(--work)}.mini-stat.personal .mini-value{color:var(--personal)}
         .tasks-section{padding:16px 20px 20px}.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-header h2{font-size:16px;font-weight:600}.section-actions{display:flex;align-items:center;gap:12px}.task-count{font-size:13px;color:var(--muted)}.shift-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:20px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;font-family:inherit}.shift-btn svg{width:16px;height:16px}
-        .task-wrapper{position:relative;margin-bottom:10px;overflow:hidden;border-radius:var(--radius)}.task-wrapper.selected .task-item{background:var(--blue-light)}.task-actions{position:absolute;right:0;top:0;bottom:0;width:140px;display:flex}.action-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:none;cursor:pointer;font-size:11px;font-weight:500;color:white}.action-btn svg{width:20px;height:20px}.action-btn.edit{background:var(--blue)}.action-btn.delete{background:var(--danger)}.task-item{display:flex;align-items:center;gap:14px;padding:16px;background:var(--card);border-radius:var(--radius);border-left:4px solid var(--border);box-shadow:var(--shadow-sm);transition:transform 0.15s;position:relative}.task-item.work{border-left-color:var(--work)}.task-item.personal{border-left-color:var(--personal)}.task-item.done{opacity:0.55;background:var(--bg)}.task-item.done .task-name{text-decoration:line-through;color:var(--muted)}.task-item.selectable{cursor:pointer}.checkbox{width:24px;height:24px;min-width:24px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.checkbox.checked{background:var(--personal);border-color:var(--personal)}.checkbox.disabled{opacity:0.5;cursor:default}.checkbox svg{width:14px;height:14px;color:white}.select-circle{width:24px;height:24px;min-width:24px;border-radius:50%;border:2px solid var(--blue);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:white}.select-circle.selected{background:var(--blue)}.task-content{flex:1;min-width:0}.task-name{font-size:15px;font-weight:500;margin-bottom:6px;word-wrap:break-word}.task-meta{display:flex;align-items:center;gap:10px}.category-dot{width:8px;height:8px;border-radius:50%}.category-dot.work{background:var(--work)}.category-dot.personal{background:var(--personal)}.time-badge{font-size:12px;color:var(--muted);font-weight:500}.repeat-badge{font-size:12px}
-        .hover-actions{display:flex;gap:8px;margin-left:auto;padding-left:12px}.hover-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0}.hover-btn svg{width:18px;height:18px;color:var(--muted);stroke:var(--muted)}.hover-btn:hover{background:var(--bg)}.hover-btn.edit:hover{border-color:var(--blue);background:var(--blue-light)}.hover-btn.edit:hover svg{color:var(--blue);stroke:var(--blue)}.hover-btn.delete:hover{border-color:var(--danger);background:var(--danger-light)}.hover-btn.delete:hover svg{color:var(--danger);stroke:var(--danger)}
+        .task-wrapper{position:relative;margin-bottom:10px;overflow:hidden;border-radius:var(--radius)}.task-wrapper.selected .task-item{background:var(--blue-light)}.task-actions{position:absolute;right:0;top:0;bottom:0;width:140px;display:flex}.action-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:none;cursor:pointer;font-size:11px;font-weight:500;color:white}.action-btn svg{width:20px;height:20px}.action-btn.edit{background:var(--blue)}.action-btn.delete{background:var(--danger)}.task-item{display:flex;align-items:center;gap:14px;padding:16px;background:var(--card);border-radius:var(--radius);border-left:4px solid var(--border);box-shadow:var(--shadow-sm);transition:transform 0.15s;position:relative}.task-item.work{border-left-color:var(--work)}.task-item.personal{border-left-color:var(--personal)}.task-item.done{background:var(--bg)}.task-item.done .task-name{text-decoration:line-through;color:var(--muted);opacity:0.6}.task-item.done .task-meta{opacity:0.6}.task-item.done .checkbox{opacity:0.7}.task-item.selectable{cursor:pointer}.checkbox{width:24px;height:24px;min-width:24px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.checkbox.checked{background:var(--personal);border-color:var(--personal)}.checkbox.disabled{opacity:0.5;cursor:default}.checkbox svg{width:14px;height:14px;color:white}.select-circle{width:24px;height:24px;min-width:24px;border-radius:50%;border:2px solid var(--blue);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:white}.select-circle.selected{background:var(--blue)}.task-content{flex:1;min-width:0}.task-name{font-size:15px;font-weight:500;margin-bottom:6px;word-wrap:break-word}.task-meta{display:flex;align-items:center;gap:10px}.category-dot{width:8px;height:8px;border-radius:50%}.category-dot.work{background:var(--work)}.category-dot.personal{background:var(--personal)}.time-badge{font-size:12px;color:var(--muted);font-weight:500}.repeat-badge{font-size:12px}
+        .hover-actions{display:flex;gap:8px;margin-left:auto;padding-left:12px}.hover-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0}.hover-btn svg{width:18px;height:18px;color:var(--muted);stroke:var(--muted)}.hover-btn:hover{background:var(--bg)}.hover-btn.edit:hover{border-color:var(--blue);background:var(--blue-light)}.hover-btn.edit:hover svg{color:var(--blue);stroke:var(--blue)}.hover-btn.delete:hover{border-color:var(--danger);background:var(--danger-light)}.hover-btn.delete:hover svg{color:var(--danger);stroke:var(--danger)}.hover-btn.schedule:hover{border-color:var(--personal);background:var(--personal-light)}.hover-btn.schedule:hover svg{color:var(--personal);stroke:var(--personal)}.action-btn.schedule{background:var(--personal)}
         .swipe-hint{font-size:12px;color:var(--muted);text-align:center;padding:10px;background:var(--bg);border-radius:8px;margin-bottom:12px}@media(min-width:1024px){.swipe-hint{display:none}}
         .empty-state{text-align:center;padding:48px 24px}.empty-icon{font-size:48px;margin-bottom:16px}.empty-state p{color:var(--muted);font-size:15px}
-        .date-nav{display:flex;justify-content:center;align-items:center;gap:24px;padding:16px 20px;background:var(--card);border-bottom:1px solid var(--border)}.date-nav button{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);font-family:inherit}.date-nav span{font-size:16px;font-weight:600;min-width:140px;text-align:center}
-        .calendar-view{padding:16px 20px}.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.cal-nav-btn{width:56px;height:56px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center}.cal-nav-btn svg{width:28px;height:28px;color:var(--text)}.cal-title{font-size:17px;font-weight:600}.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px}.weekday{text-align:center;font-size:12px;font-weight:600;color:var(--muted);padding:8px 0}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--radius-sm);cursor:pointer;position:relative;background:var(--card)}.cal-day.empty{background:transparent;cursor:default}.cal-day.today{background:var(--personal-light)}.cal-day.selected{background:var(--personal);color:white}.day-num{font-size:14px;font-weight:500}.day-indicators{display:flex;gap:3px;margin-top:4px}.indicator{width:5px;height:5px;border-radius:50%}.indicator.work{background:var(--work)}.indicator.personal{background:var(--personal)}.cal-day.selected .indicator.work,.cal-day.selected .indicator.personal{background:white}
+        .date-nav{display:flex;justify-content:center;align-items:center;gap:24px;padding:16px 20px;background:var(--card);border-bottom:1px solid var(--border)}.date-nav button{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);font-family:inherit;padding:0}.date-nav button svg{width:20px;height:20px;stroke:var(--text)}.date-nav span{font-size:16px;font-weight:600;min-width:140px;text-align:center}
+        .calendar-view{padding:16px 20px;max-width:600px;margin:0 auto}.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cal-nav-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center}.cal-nav-btn svg{width:20px;height:20px;color:var(--text)}.cal-title{font-size:16px;font-weight:600}.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px}.weekday{text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:6px 0}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.cal-day{aspect-ratio:1;max-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;position:relative;background:var(--card)}.cal-day.empty{background:transparent;cursor:default}.cal-day.today{background:var(--personal-light)}.cal-day.selected{background:var(--personal);color:white}.day-num{font-size:13px;font-weight:500}.day-indicators{display:flex;gap:2px;margin-top:3px}.indicator{width:4px;height:4px;border-radius:50%}.indicator.work{background:var(--work)}.indicator.personal{background:var(--personal)}.cal-day.selected .indicator.work,.cal-day.selected .indicator.personal{background:white}
         .mini-calendar{background:var(--bg);border-radius:var(--radius);padding:16px;margin-bottom:20px}.mini-cal-header{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center}.mini-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px}.mini-cal-weekdays div{text-align:center;font-size:10px;font-weight:600;color:var(--muted)}.mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.mini-cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;cursor:pointer}.mini-cal-day.empty{cursor:default}.mini-cal-day.today{background:var(--personal-light);font-weight:600}.mini-cal-day.selected{background:var(--personal);color:white}.mini-cal-day.has-tasks{font-weight:600}.mini-cal-day:not(.empty):hover{background:var(--border)}.mini-cal-day.selected:hover{background:var(--personal)}
-        .panel-title{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px}.panel-tasks{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}.panel-task-item{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--border)}.panel-task-item.work{border-left-color:var(--work)}.panel-task-item.personal{border-left-color:var(--personal)}.panel-task-item.done{opacity:0.5}.panel-task-name{font-size:13px;font-weight:500;flex:1}.panel-task-time{font-size:11px;color:var(--muted)}
-        .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:70px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}@media(min-width:481px)and(max-width:1023px){.bottom-nav{left:50%;transform:translateX(-50%);max-width:480px;border-radius:20px 20px 0 0}}.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit}.nav-item.active{color:var(--personal)}.nav-item svg{width:22px;height:22px}.nav-item span{font-size:11px;font-weight:600}
-        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;z-index:1000;animation:fadeIn 0.2s}@keyframes fadeIn{from{opacity:0}to{opacity:1}}.modal-content{background:var(--card);border-radius:24px 24px 0 0;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s}@media(min-width:1024px){.modal-overlay{align-items:center}.modal-content{border-radius:24px;max-width:440px}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.modal-header h2{font-size:20px;font-weight:700}.close-btn{width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.close-btn::before{content:"âœ•";font-size:16px;font-weight:500;color:var(--muted);line-height:1}.close-btn:active{background:var(--border)}.form-group{margin-bottom:20px}.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px}.form-group input[type="text"],.form-group input[type="date"],.form-group input[type="number"],.form-group select{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;background:var(--card);color:var(--text)}.form-group input::placeholder{color:var(--muted)}.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--personal)}.form-row{display:flex;gap:12px}.form-row-2{display:flex;gap:12px}.form-row-2 .form-group{flex:1;margin-bottom:0}.cat-btn{flex:1;padding:14px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.cat-btn.active.work{border-color:var(--work);background:var(--work-light);color:#B45309}.cat-btn.active.personal{border-color:var(--personal);background:var(--personal-light);color:#047857}.time-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.preset-btn{padding:10px 16px;border:2px solid var(--border);border-radius:20px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.preset-btn.active{background:var(--text);color:white;border-color:var(--text)}.slider-row{display:flex;align-items:center;gap:14px}.slider-row input[type="range"]{flex:1;height:6px;-webkit-appearance:none;background:var(--border);border-radius:3px}.slider-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--text);border-radius:50%;cursor:pointer}.slider-value{font-size:14px;font-weight:600;min-width:55px;text-align:right}.save-btn{width:100%;padding:16px;background:var(--personal);color:white;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+        .panel-title{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px}.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border)}.panel-header h3{font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1px}.bulk-shift-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;font-family:inherit;transition:all 0.15s}.bulk-shift-btn:hover{background:var(--personal-light);border-color:var(--personal);color:var(--personal)}.bulk-shift-btn.active{background:var(--personal);border-color:var(--personal);color:white}.bulk-shift-btn svg{width:14px;height:14px}.panel-selection-actions{display:flex;gap:8px;padding:12px;background:var(--blue-light);border-radius:var(--radius-sm);margin-bottom:16px;align-items:center}.panel-selection-count{flex:1;font-size:13px;font-weight:600;color:var(--blue)}.panel-selection-btn{padding:6px 12px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.panel-selection-btn.move{background:var(--blue);color:white}.panel-tasks{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}.panel-task-item{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--border);position:relative;transition:all 0.15s}.panel-task-item.work{border-left-color:var(--work)}.panel-task-item.personal{border-left-color:var(--personal)}.panel-task-item.done{opacity:0.5}.panel-task-item.panel-selectable{cursor:pointer}.panel-task-item.panel-selectable:hover{background:var(--blue-light)}.panel-task-item.panel-selected{background:var(--blue-light);border-left-color:var(--blue)}.panel-select-checkbox{width:20px;height:20px;min-width:20px;border-radius:4px;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}.panel-select-checkbox svg{width:12px;height:12px;stroke:white}.panel-select-checkbox.checked{background:var(--blue);border-color:var(--blue)}.panel-task-name{font-size:13px;font-weight:500;flex:1;word-wrap:break-word}.panel-task-time{font-size:11px;color:var(--muted)}.panel-task-actions{display:flex;gap:4px;margin-left:8px}.panel-action-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all 0.15s}.panel-action-btn svg{width:14px;height:14px;color:var(--muted);stroke:var(--muted)}.panel-action-btn:hover{background:var(--bg)}.panel-action-btn.shift:hover{border-color:var(--personal);background:var(--personal-light)}.panel-action-btn.shift:hover svg{color:var(--personal);stroke:var(--personal)}.panel-action-btn.edit:hover{border-color:var(--blue);background:var(--blue-light)}.panel-action-btn.edit:hover svg{color:var(--blue);stroke:var(--blue)}.panel-action-btn.delete:hover{border-color:var(--danger);background:var(--danger-light)}.panel-action-btn.delete:hover svg{color:var(--danger);stroke:var(--danger)}.show-more-btn{text-align:center;padding:8px;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;border-radius:6px}.show-more-btn:hover{background:var(--blue-light);color:var(--personal)}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:70px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}@media(min-width:481px)and(max-width:1023px){.bottom-nav{left:50%;transform:translateX(-50%);max-width:480px;border-radius:20px 20px 0 0}}.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit}.nav-item.active{color:var(--personal)}.nav-item.parked{color:var(--muted)}.nav-item.parked.active{color:#8B5CF6}.nav-item svg{width:22px;height:22px}.nav-item span{font-size:11px;font-weight:600}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;z-index:1000;animation:fadeIn 0.2s}@keyframes fadeIn{from{opacity:0}to{opacity:1}}.modal-content{background:var(--card);border-radius:24px 24px 0 0;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s}@media(min-width:1024px){.modal-overlay{align-items:center}.modal-content{border-radius:24px;max-width:440px}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.modal-header h2{font-size:20px;font-weight:700}.close-btn{width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.close-btn::before{content:"✕";font-size:16px;font-weight:500;color:var(--muted);line-height:1}.close-btn:active{background:var(--border)}.form-group{margin-bottom:20px}.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px}.form-group input[type="text"],.form-group input[type="date"],.form-group input[type="number"],.form-group select{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;background:var(--card);color:var(--text)}.form-group input::placeholder{color:var(--muted)}.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--personal)}.form-row{display:flex;gap:12px}.form-row-2{display:flex;gap:12px}.form-row-2 .form-group{flex:1;margin-bottom:0}.cat-btn{flex:1;padding:14px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.cat-btn.active.work{border-color:var(--work);background:var(--work-light);color:#B45309}.cat-btn.active.personal{border-color:var(--personal);background:var(--personal-light);color:#047857}.time-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.preset-btn{padding:10px 16px;border:2px solid var(--border);border-radius:20px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.preset-btn.active{background:var(--text);color:white;border-color:var(--text)}.slider-row{display:flex;align-items:center;gap:14px}.slider-row input[type="range"]{flex:1;height:6px;-webkit-appearance:none;background:var(--border);border-radius:3px}.slider-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--text);border-radius:50%;cursor:pointer}.slider-value{font-size:14px;font-weight:600;min-width:55px;text-align:right}.save-btn{width:100%;padding:16px;background:var(--personal);color:white;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
         .repeat-end-section{margin-bottom:20px;padding:16px;background:var(--bg);border-radius:var(--radius-sm)}.repeat-end-section>label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.repeat-end-options{display:flex;flex-direction:column;gap:12px}.radio-option{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border-radius:var(--radius-sm);cursor:pointer;border:2px solid transparent}.radio-option.active{border-color:var(--personal)}.radio-option input[type="radio"]{width:18px;height:18px;accent-color:var(--personal)}.radio-label{font-size:14px;display:flex;align-items:center;gap:8px}.inline-input{width:60px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center}.inline-date{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px}
-        .move-modal{max-height:60vh}.move-info{font-size:15px;color:var(--text-secondary);margin-bottom:20px}.quick-dates{display:flex;gap:10px;margin-bottom:20px}.quick-date-btn{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:500;cursor:pointer;color:var(--text-secondary);font-family:inherit}
+        .move-modal{max-height:60vh}.move-info{font-size:15px;color:var(--text-secondary);margin-bottom:20px}.quick-dates{display:flex;gap:10px;margin-bottom:20px}.quick-date-btn{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:500;cursor:pointer;color:var(--text-secondary);font-family:inherit;transition:all 0.15s}.quick-date-btn:hover{border-color:var(--personal);background:var(--personal-light);color:var(--personal)}.park-divider{text-align:center;color:var(--muted);font-size:12px;font-weight:600;margin:20px 0;position:relative}.park-divider::before,.park-divider::after{content:'';position:absolute;top:50%;width:calc(50% - 20px);height:1px;background:var(--border)}.park-divider::before{left:0}.park-divider::after{right:0}.park-section-subtle{text-align:center;padding:12px 0}.park-btn-subtle{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.15s}.park-btn-subtle:hover{background:var(--bg);border-color:#8B5CF6;color:#8B5CF6}.park-btn-subtle svg{width:16px;height:16px}.park-description-subtle{font-size:11px;color:var(--muted);margin-top:6px}
         .modal-content.settings{padding-bottom:calc(32px + env(safe-area-inset-bottom))}.user-info{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg);border-radius:var(--radius);margin-bottom:24px}.user-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.user-avatar-placeholder{width:48px;height:48px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600}.user-name{font-weight:600;font-size:15px}.user-email{font-size:13px;color:var(--muted)}.settings-section{margin-bottom:24px}.settings-section h3{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.setting-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}.setting-item label{font-size:14px}.setting-input{display:flex;align-items:center;gap:10px}.setting-input input{width:80px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;text-align:center}.setting-input span{font-size:13px;color:var(--muted);min-width:50px}.signout-btn{width:100%;padding:14px;background:transparent;color:var(--danger);border:2px solid var(--danger);border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit}
         .shortcuts-list{display:flex;flex-direction:column;gap:8px}.shortcut-row{display:flex;align-items:center;gap:12px;padding:8px 0}.shortcut-row .key{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:monospace;min-width:40px;text-align:center}.shortcut-row span:last-child{font-size:13px;color:var(--text-secondary)}
         .analytics-view{padding:16px 20px}.analytics-card{background:var(--card);padding:20px;border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow-sm)}.analytics-card.highlight{background:linear-gradient(135deg,#D1FAE5 0%,#A7F3D0 100%);text-align:center}.big-number{font-size:48px;font-weight:700;color:var(--personal);display:block}.big-label{font-size:14px;color:#047857;font-weight:500}.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-card{background:var(--card);padding:16px 12px;border-radius:var(--radius);text-align:center;box-shadow:var(--shadow-sm)}.stat-card.positive{background:var(--personal-light)}.stat-card.negative{background:var(--danger-light)}.stat-value{font-size:20px;font-weight:700;display:block}.stat-card.positive .stat-value{color:var(--personal)}.stat-card.negative .stat-value{color:var(--danger)}.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px;display:block;line-height:1.3}.chart-card{background:var(--card);padding:20px;border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow-sm)}.chart-card h3{font-size:15px;font-weight:600;margin-bottom:16px}.bar-chart{display:flex;justify-content:space-between;align-items:flex-end;height:100px}.bar-col{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1}.bar-stack{width:28px;height:80px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:var(--bg)}.bar{width:100%;transition:height 0.4s}.bar.work{background:var(--work)}.bar.personal{background:var(--personal)}.bar-day{font-size:12px;color:var(--muted);font-weight:600}.chart-legend{display:flex;justify-content:center;gap:24px;margin-top:16px;font-size:12px;color:var(--muted)}.chart-legend span{display:flex;align-items:center;gap:6px}.legend-dot{width:10px;height:10px;border-radius:50%}.legend-dot.work{background:var(--work)}.legend-dot.personal{background:var(--personal)}.insight-card{display:flex;align-items:center;gap:14px;background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:var(--shadow-sm)}.insight-icon{font-size:28px}.insight-card p{font-size:14px;color:var(--muted)}.insight-card strong{color:var(--text);font-weight:600}
@@ -699,13 +732,167 @@ export default function DayPlannerApp() {
                 {isSelectionMode && <SelectionHeader selectedCount={selectedTasks.length} onCancel={exitSelectionMode} onMove={() => setShowMoveModal(true)} />}
                 {activeTab === 'today' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Today</h1><span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span></div></div><ProgressSummary workDone={workDone} workTotal={workTotal} personalDone={personalDone} personalTotal={personalTotal} settings={settings} /></>)}
                 {activeTab === 'today' && renderTasks(currentDateTasks)}
-                {activeTab === 'calendar' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Calendar</h1></div></div><CalendarView tasks={tasks} onDateSelect={setSelectedDate} selectedDate={selectedDate} /><div className="date-nav"><button onClick={() => navigateDate(-1)}>â€¹</button><span>{formatDate(selectedDate)}</span><button onClick={() => navigateDate(1)}>â€º</button></div><MiniProgress tasks={selectedDateTasks} settings={settings} /></>)}
+                {activeTab === 'calendar' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Calendar</h1></div></div><CalendarView tasks={tasks} onDateSelect={setSelectedDate} selectedDate={selectedDate} /><div className="date-nav"><button onClick={() => navigateDate(-1)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg></button><span>{formatDate(selectedDate)}</span><button onClick={() => navigateDate(1)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg></button></div><MiniProgress tasks={selectedDateTasks} settings={settings} /></>)}
                 {activeTab === 'calendar' && renderTasks(selectedDateTasks)}
                 {activeTab === 'analytics' && (<><div className="header"><div className="header-left"><h1>Analytics</h1></div></div><AnalyticsView tasks={tasks} /></>)}
+                {activeTab === 'parked' && (<><div className="header"><div className="header-left"><h1>📦 Parked Tasks</h1><span>{parkedTasks.length} task{parkedTasks.length !== 1 ? 's' : ''} saved for later</span></div></div><div className="tasks-section">{parkedTasks.length === 0 ? <div className="empty-state"><div className="empty-icon">📦</div><p>No parked tasks</p><p style={{fontSize:'13px',color:'var(--muted)',marginTop:'8px'}}>Tasks you park will appear here</p></div> : parkedTasks.map(task => (<div key={task.id} className="task-wrapper"><div className={`task-item ${task.category.toLowerCase()} ${task.status === 'Done' ? 'done' : ''}`}><button className={`checkbox ${task.status === 'Done' ? 'checked' : ''}`} onClick={() => toggleTask(task.id, task.status)}>{task.status === 'Done' && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}</button><div className="task-content"><span className="task-name">{task.task}</span><div className="task-meta"><span className={`category-dot ${task.category.toLowerCase()}`}></span><span className="time-badge">{formatTime(task.timeRequired)}</span><span style={{color:'var(--muted)',fontSize:'11px'}}>• No date</span></div></div>{!isTouchDevice && <div className="hover-actions"><button className="hover-btn schedule" onClick={(e) => { e.stopPropagation(); handleScheduleTask(task); }} title="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button><button className="hover-btn edit" onClick={(e) => { e.stopPropagation(); handleEdit(task); }} title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button><button className="hover-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }} title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button></div>}</div></div>))}</div></>)}
               </div>
               <div className="secondary-panel">
-                {activeTab === 'today' && (<><h3 className="panel-title">This Month</h3><MiniCalendar tasks={tasks} onDateSelect={(date) => { setSelectedDate(date); setActiveTab('calendar'); }} selectedDate={selectedDate} />{(() => { const tomorrow = getNextDay(today); const dayAfter = getNextDay(tomorrow); const dayAfterAfter = getNextDay(dayAfter); const tomorrowTasks = tasks.filter(t => t.date === tomorrow && t.status !== 'Done'); const dayAfterTasks = tasks.filter(t => t.date === dayAfter && t.status !== 'Done'); const dayAfterAfterTasks = tasks.filter(t => t.date === dayAfterAfter && t.status !== 'Done'); return (<><h3 className="panel-title">Tomorrow</h3><div className="panel-tasks">{tomorrowTasks.length > 0 ? tomorrowTasks.slice(0,3).map(task => (<div key={task.id} className={`panel-task-item ${task.category.toLowerCase()}`}><span className="panel-task-name">{task.task}</span><span className="panel-task-time">{formatTime(task.timeRequired)}</span></div>)) : <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks</p>}</div><h3 className="panel-title">{formatDate(dayAfter)}</h3><div className="panel-tasks">{dayAfterTasks.length > 0 ? dayAfterTasks.slice(0,3).map(task => (<div key={task.id} className={`panel-task-item ${task.category.toLowerCase()}`}><span className="panel-task-name">{task.task}</span><span className="panel-task-time">{formatTime(task.timeRequired)}</span></div>)) : <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks</p>}</div><h3 className="panel-title">{formatDate(dayAfterAfter)}</h3><div className="panel-tasks">{dayAfterAfterTasks.length > 0 ? dayAfterAfterTasks.slice(0,3).map(task => (<div key={task.id} className={`panel-task-item ${task.category.toLowerCase()}`}><span className="panel-task-name">{task.task}</span><span className="panel-task-time">{formatTime(task.timeRequired)}</span></div>)) : <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks</p>}</div></>); })()}</>)}
-                {activeTab === 'calendar' && (<><h3 className="panel-title">{formatDate(selectedDate)} Tasks</h3><div className="panel-tasks">{selectedDateTasks.map(task => (<div key={task.id} className={`panel-task-item ${task.category.toLowerCase()} ${task.status === 'Done' ? 'done' : ''}`}><span className="panel-task-name">{task.task}</span><span className="panel-task-time">{formatTime(task.timeRequired)}</span></div>))}{selectedDateTasks.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks for this day</p>}</div></>)}
+                {activeTab === 'today' && (<>
+                  <div className="panel-header">
+                    <h3>Other Tasks</h3>
+                    <button className={`bulk-shift-btn ${isPanelSelectionMode ? 'active' : ''}`} onClick={togglePanelSelectionMode}>
+                      {isPanelSelectionMode ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Cancel</> : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Shift</>}
+                    </button>
+                  </div>
+                  {isPanelSelectionMode && panelSelectedTasks.length > 0 && (
+                    <div className="panel-selection-actions">
+                      <span className="panel-selection-count">{panelSelectedTasks.length} selected</span>
+                      <button className="panel-selection-btn move" onClick={handlePanelShift}>Move <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px',marginLeft:'4px'}}><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+                    </div>
+                  )}
+                  <h3 className="panel-title">This Month</h3>
+                  <MiniCalendar tasks={tasks} onDateSelect={(date) => { setSelectedDate(date); setActiveTab('calendar'); }} selectedDate={selectedDate} />
+                  {(() => {
+                    const dates = [];
+                    for (let i = 4; i >= 1; i--) {
+                      const d = new Date();
+                      d.setDate(d.getDate() - i);
+                      dates.push({ dateStr: dateToStr(d), label: formatDate(dateToStr(d)), showAll: false });
+                    }
+                    for (let i = 1; i <= 2; i++) {
+                      const d = new Date();
+                      d.setDate(d.getDate() + i);
+                      dates.push({ dateStr: dateToStr(d), label: formatDate(dateToStr(d)), showAll: true });
+                    }
+                    
+                    return dates.map(({ dateStr, label, showAll }) => {
+                      const dateTasks = tasks.filter(t => t.date === dateStr && (showAll || t.status !== 'Done'));
+                      if (dateTasks.length === 0 && !showAll) return null;
+                      
+                      const isExpanded = expandedSections[dateStr];
+                      const displayTasks = isExpanded ? dateTasks : dateTasks.slice(0, 4);
+                      const remainingCount = dateTasks.length - 4;
+                      
+                      return (
+                        <div key={dateStr}>
+                          <h3 className="panel-title">{label}</h3>
+                          <div className="panel-tasks">
+                            {dateTasks.length > 0 ? displayTasks.map(task => (
+                              <div 
+                                key={task.id} 
+                                className={`panel-task-item ${task.category.toLowerCase()} ${task.status === 'Done' ? 'done' : ''} ${isPanelSelectionMode && task.status !== 'Done' ? 'panel-selectable' : ''} ${panelSelectedTasks.includes(task.id) ? 'panel-selected' : ''}`}
+                                onClick={() => isPanelSelectionMode && task.status !== 'Done' && handlePanelTaskSelect(task.id)}
+                              >
+                                {isPanelSelectionMode && task.status !== 'Done' && (
+                                  <div className={`panel-select-checkbox ${panelSelectedTasks.includes(task.id) ? 'checked' : ''}`}>
+                                    {panelSelectedTasks.includes(task.id) && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
+                                  </div>
+                                )}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span className="panel-task-name">{task.task}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                    <span className="panel-task-time">{formatTime(task.timeRequired)}</span>
+                                  </div>
+                                </div>
+                                {!isPanelSelectionMode && task.status !== 'Done' && (
+                                  <div className="panel-task-actions">
+                                    <button className="panel-action-btn shift" onClick={(e) => { e.stopPropagation(); handleShiftSingleTask(task); }} title="Shift task">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                    </button>
+                                    <button className="panel-action-btn edit" onClick={(e) => { e.stopPropagation(); handleEdit(task); }} title="Edit">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                    </button>
+                                    <button className="panel-action-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }} title="Delete">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )) : <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks</p>}
+                            {!isExpanded && remainingCount > 0 && (
+                              <div className="show-more-btn" onClick={() => toggleSectionExpansion(dateStr)}>
+                                + Show {remainingCount} more...
+                              </div>
+                            )}
+                            {isExpanded && dateTasks.length > 4 && (
+                              <div className="show-more-btn" onClick={() => toggleSectionExpansion(dateStr)}>
+                                - Show less
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </>)}
+                {activeTab === 'calendar' && (<>
+                  <div className="panel-header">
+                    <h3>{formatDate(selectedDate)}</h3>
+                    <button className={`bulk-shift-btn ${isPanelSelectionMode ? 'active' : ''}`} onClick={togglePanelSelectionMode}>
+                      {isPanelSelectionMode ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Cancel</> : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Shift</>}
+                    </button>
+                  </div>
+                  {isPanelSelectionMode && panelSelectedTasks.length > 0 && (
+                    <div className="panel-selection-actions">
+                      <span className="panel-selection-count">{panelSelectedTasks.length} selected</span>
+                      <button className="panel-selection-btn move" onClick={handlePanelShift}>Move <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px',marginLeft:'4px'}}><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+                    </div>
+                  )}
+                  <div className="panel-tasks">
+                    {(() => {
+                      const isExpanded = expandedSections[selectedDate];
+                      const displayTasks = isExpanded ? selectedDateTasks : selectedDateTasks.slice(0, 4);
+                      const remainingCount = selectedDateTasks.length - 4;
+                      
+                      return (<>
+                        {displayTasks.map(task => (
+                          <div 
+                            key={task.id} 
+                            className={`panel-task-item ${task.category.toLowerCase()} ${task.status === 'Done' ? 'done' : ''} ${isPanelSelectionMode && task.status !== 'Done' ? 'panel-selectable' : ''} ${panelSelectedTasks.includes(task.id) ? 'panel-selected' : ''}`}
+                            onClick={() => isPanelSelectionMode && task.status !== 'Done' && handlePanelTaskSelect(task.id)}
+                          >
+                            {isPanelSelectionMode && task.status !== 'Done' && (
+                              <div className={`panel-select-checkbox ${panelSelectedTasks.includes(task.id) ? 'checked' : ''}`}>
+                                {panelSelectedTasks.includes(task.id) && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span className="panel-task-name">{task.task}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                <span className="panel-task-time">{formatTime(task.timeRequired)}</span>
+                              </div>
+                            </div>
+                            {!isPanelSelectionMode && task.status !== 'Done' && (
+                              <div className="panel-task-actions">
+                                <button className="panel-action-btn shift" onClick={(e) => { e.stopPropagation(); handleShiftSingleTask(task); }} title="Shift task">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </button>
+                                <button className="panel-action-btn edit" onClick={(e) => { e.stopPropagation(); handleEdit(task); }} title="Edit">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                </button>
+                                <button className="panel-action-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }} title="Delete">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {selectedDateTasks.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No tasks for this day</p>}
+                        {!isExpanded && remainingCount > 0 && (
+                          <div className="show-more-btn" onClick={() => toggleSectionExpansion(selectedDate)}>
+                            + Show {remainingCount} more...
+                          </div>
+                        )}
+                        {isExpanded && selectedDateTasks.length > 4 && (
+                          <div className="show-more-btn" onClick={() => toggleSectionExpansion(selectedDate)}>
+                            - Show less
+                          </div>
+                        )}
+                      </>);
+                    })()}
+                  </div>
+                </>)}
                 {activeTab === 'analytics' && (<><h3 className="panel-title">Quick Stats</h3><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}><div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px' }}><div style={{ fontSize: '24px', fontWeight: '700' }}>{tasks.length}</div><div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total Tasks</div></div><div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px' }}><div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--personal)' }}>{tasks.filter(t => t.status === 'Done').length}</div><div style={{ fontSize: '12px', color: 'var(--muted)' }}>Completed</div></div><div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px' }}><div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--work)' }}>{tasks.filter(t => t.status !== 'Done').length}</div><div style={{ fontSize: '12px', color: 'var(--muted)' }}>Pending</div></div></div></>)}
               </div>
             </div>
@@ -715,23 +902,26 @@ export default function DayPlannerApp() {
       ) : (
         <div className="app">
           {isSelectionMode && <SelectionHeader selectedCount={selectedTasks.length} onCancel={exitSelectionMode} onMove={() => setShowMoveModal(true)} />}
-          {activeTab === 'today' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Today</h1><span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span></div><button className="icon-btn" onClick={() => setShowSettings(true)}>âš™ï¸</button></div><ProgressSummary workDone={workDone} workTotal={workTotal} personalDone={personalDone} personalTotal={personalTotal} settings={settings} /></>)}
+          {activeTab === 'today' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Today</h1><span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span></div><button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button></div><ProgressSummary workDone={workDone} workTotal={workTotal} personalDone={personalDone} personalTotal={personalTotal} settings={settings} /></>)}
           {activeTab === 'today' && renderTasks(currentDateTasks)}
-          {activeTab === 'calendar' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Calendar</h1></div></div><CalendarView tasks={tasks} onDateSelect={setSelectedDate} selectedDate={selectedDate} /><div className="date-nav"><button onClick={() => navigateDate(-1)}>â€¹</button><span>{formatDate(selectedDate)}</span><button onClick={() => navigateDate(1)}>â€º</button></div><MiniProgress tasks={selectedDateTasks} settings={settings} /></>)}
+          {activeTab === 'calendar' && !isSelectionMode && (<><div className="header"><div className="header-left"><h1>Calendar</h1></div></div><CalendarView tasks={tasks} onDateSelect={setSelectedDate} selectedDate={selectedDate} /><div className="date-nav"><button onClick={() => navigateDate(-1)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg></button><span>{formatDate(selectedDate)}</span><button onClick={() => navigateDate(1)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg></button></div><MiniProgress tasks={selectedDateTasks} settings={settings} /></>)}
           {activeTab === 'calendar' && renderTasks(selectedDateTasks)}
-          {activeTab === 'analytics' && (<><div className="header"><div className="header-left"><h1>Analytics</h1></div><button className="icon-btn" onClick={() => setShowSettings(true)}>âš™ï¸</button></div><AnalyticsView tasks={tasks} /></>)}
+          {activeTab === 'analytics' && (<><div className="header"><div className="header-left"><h1>Analytics</h1></div><button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button></div><AnalyticsView tasks={tasks} /></>)}
+          {activeTab === 'parked' && (<><div className="header"><div className="header-left"><h1>📦 Parked</h1><span>{parkedTasks.length} task{parkedTasks.length !== 1 ? 's' : ''}</span></div><button className="icon-btn" onClick={() => setShowSettings(true)}>⚙️</button></div><div className="tasks-section">{parkedTasks.length === 0 ? <div className="empty-state"><div className="empty-icon">📦</div><p>No parked tasks</p><p style={{fontSize:'13px',color:'var(--muted)',marginTop:'8px'}}>Tasks you park will appear here</p></div> : parkedTasks.map(task => (<TaskItem key={task.id} task={task} onToggle={toggleTask} onEdit={handleEdit} onDelete={handleDelete} isSelectionMode={false} isSelected={false} onSelect={() => {}} isDesktop={isDesktop} isTouchDevice={isTouchDevice} onSchedule={handleScheduleTask} />))}</div></>)}
           {!isSelectionMode && <button className="fab" onClick={() => setShowModal(true)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg></button>}
           {!isSelectionMode && (
             <nav className="bottom-nav">
               <button className={`nav-item ${activeTab === 'today' ? 'active' : ''}`} onClick={() => setActiveTab('today')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg><span>Today</span></button>
               <button className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg><span>Calendar</span></button>
               <button className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg><span>Analytics</span></button>
+              <button className={`nav-item parked ${activeTab === 'parked' ? 'active' : ''}`} onClick={() => setActiveTab('parked')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>Parked</span></button>
             </nav>
           )}
         </div>
       )}
-      {showModal && <TaskModal task={editingTask} onSave={handleSave} onClose={() => { setShowModal(false); setEditingTask(null); }} selectedDate={activeTab === 'calendar' ? selectedDate : today} />}
-      {showMoveModal && <MoveModal onClose={() => setShowMoveModal(false)} onMove={handleMove} selectedCount={selectedTasks.length} targetDate={activeTab === 'calendar' ? selectedDate : today} />}
+      {showModal && <TaskModal task={editingTask} onSave={handleSave} onClose={() => { setShowModal(false); setEditingTask(null); }} selectedDate={activeTab === 'calendar' ? selectedDate : activeTab === 'parked' ? today : selectedDate} />}
+      {showMoveModal && <MoveModal onClose={() => setShowMoveModal(false)} onMove={handleMove} onPark={handlePark} selectedCount={selectedTasks.length} targetDate={activeTab === 'calendar' ? selectedDate : today} />}
+      {showScheduleModal && taskToSchedule && <MoveModal onClose={() => { setShowScheduleModal(false); setTaskToSchedule(null); }} onMove={handleScheduleConfirm} onPark={() => { setShowScheduleModal(false); setTaskToSchedule(null); }} selectedCount={1} targetDate={today} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} tasks={tasks} user={user} onSignOut={handleSignOut} settings={settings} onUpdateSettings={handleUpdateSettings} />}
     </>
   );
