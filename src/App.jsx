@@ -114,9 +114,37 @@ const suggestTimeSlots = (task, date, existingTasks, settings) => {
   const rangeStart = isWork ? settings.workingHours.start : settings.personalHours.start;
   const rangeEnd = isWork ? settings.workingHours.end : settings.personalHours.end;
   
-  const startMinutes = timeToMinutes(rangeStart);
+  let startMinutes = timeToMinutes(rangeStart);
   const endMinutes = timeToMinutes(rangeEnd);
   const increment = settings.timeSlotIncrement || 30;
+  
+  // CHECK FOR TODAY - Skip past time slots
+  const today = getTodayStr();
+  const isToday = date === today;
+  
+  if (isToday) {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    // Round up to next increment (e.g., if it's 10:17 and increment is 30, start from 10:30)
+    const nextSlot = Math.ceil(currentMinutes / increment) * increment;
+    
+    // Only use future times
+    if (nextSlot > startMinutes) {
+      startMinutes = nextSlot;
+    }
+    
+    // If current time is past the end of range, no suggestions possible
+    if (startMinutes >= endMinutes) {
+      return {
+        suggestions: [],
+        hasCapacity: true,
+        overflowMinutes: 0,
+        categoryRemaining: isWork ? settings.workLimit : settings.personalLimit,
+        message: 'No available time slots remaining today. Try tomorrow?'
+      };
+    }
+  }
   
   // Calculate current usage
   const workUsage = sameDateTasks
@@ -747,18 +775,149 @@ const SettingsModal = ({ onClose, tasks, user, onSignOut, settings, onUpdateSett
   const [localSettings, setLocalSettings] = useState(settings);
   const handleSave = () => { onUpdateSettings(localSettings); onClose(); };
   useEffect(() => { const handleKey = (e) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', handleKey); return () => window.removeEventListener('keydown', handleKey); }, [onClose]);
+  
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content settings" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><h2>Settings</h2><button className="close-btn" onClick={onClose}></button></div>
         {user && (<div className="user-info">{user.photoURL ? <img src={user.photoURL} alt="" className="user-avatar" /> : <div className="user-avatar-placeholder">{user.displayName?.charAt(0) || '?'}</div>}<div><div className="user-name">{user.displayName}</div><div className="user-email">{user.email}</div></div></div>)}
-        <div className="settings-section"><h3>Daily Time Limits</h3>
-          <div className="setting-item"><label>Work Hours</label><div className="setting-input"><input type="number" min="60" max="720" step="30" value={localSettings.workLimit} onChange={e => setLocalSettings({...localSettings, workLimit: parseInt(e.target.value) || 360})} /><span>{formatTime(localSettings.workLimit)}</span></div></div>
-          <div className="setting-item"><label>Personal Hours</label><div className="setting-input"><input type="number" min="30" max="480" step="30" value={localSettings.personalLimit} onChange={e => setLocalSettings({...localSettings, personalLimit: parseInt(e.target.value) || 120})} /><span>{formatTime(localSettings.personalLimit)}</span></div></div>
+        
+        <div className="settings-section">
+          <h3>Daily Time Limits</h3>
+          <div className="setting-item">
+            <label>Work Hours</label>
+            <div className="setting-input">
+              <input type="number" min="60" max="720" step="30" value={localSettings.workLimit} onChange={e => setLocalSettings({...localSettings, workLimit: parseInt(e.target.value) || 360})} />
+              <span>{formatTime(localSettings.workLimit)}</span>
+            </div>
+          </div>
+          <div className="setting-item">
+            <label>Personal Hours</label>
+            <div className="setting-input">
+              <input type="number" min="30" max="480" step="30" value={localSettings.personalLimit} onChange={e => setLocalSettings({...localSettings, personalLimit: parseInt(e.target.value) || 120})} />
+              <span>{formatTime(localSettings.personalLimit)}</span>
+            </div>
+          </div>
         </div>
-        <div className="settings-section"><h3>Keyboard Shortcuts</h3><div className="shortcuts-list">
-          {[['N','New task'],['T','Today'],['C','Calendar'],['A','Analytics'],['S','Settings'],['Esc','Close modal']].map(([key, desc]) => (<div key={key} className="shortcut-row"><span className="key">{key}</span><span>{desc}</span></div>))}
-        </div></div>
+        
+        <div className="settings-section">
+          <h3>⏰ Smart Scheduling Preferences</h3>
+          <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>Customize when AI suggests tasks</p>
+          
+          <div className="setting-item">
+            <label>Work Hours</label>
+            <div className="time-range-input">
+              <input 
+                type="time" 
+                value={localSettings.workingHours?.start || '09:00'} 
+                onChange={e => setLocalSettings({...localSettings, workingHours: {...localSettings.workingHours, start: e.target.value}})}
+                className="time-input-small"
+              />
+              <span style={{ color: 'var(--muted)', margin: '0 8px' }}>to</span>
+              <input 
+                type="time" 
+                value={localSettings.workingHours?.end || '17:00'} 
+                onChange={e => setLocalSettings({...localSettings, workingHours: {...localSettings.workingHours, end: e.target.value}})}
+                className="time-input-small"
+              />
+            </div>
+          </div>
+          
+          <div className="setting-item">
+            <label>Personal Hours</label>
+            <div className="time-range-input">
+              <input 
+                type="time" 
+                value={localSettings.personalHours?.start || '18:00'} 
+                onChange={e => setLocalSettings({...localSettings, personalHours: {...localSettings.personalHours, start: e.target.value}})}
+                className="time-input-small"
+              />
+              <span style={{ color: 'var(--muted)', margin: '0 8px' }}>to</span>
+              <input 
+                type="time" 
+                value={localSettings.personalHours?.end || '21:00'} 
+                onChange={e => setLocalSettings({...localSettings, personalHours: {...localSettings.personalHours, end: e.target.value}})}
+                className="time-input-small"
+              />
+            </div>
+          </div>
+          
+          <div className="setting-item">
+            <label>Morning Focus Time (Work)</label>
+            <div className="time-range-input">
+              <input 
+                type="time" 
+                value={localSettings.focusTimes?.workMorning?.[0] || '09:00'} 
+                onChange={e => setLocalSettings({...localSettings, focusTimes: {...localSettings.focusTimes, workMorning: [e.target.value, localSettings.focusTimes?.workMorning?.[1] || '12:00']}})}
+                className="time-input-small"
+              />
+              <span style={{ color: 'var(--muted)', margin: '0 8px' }}>to</span>
+              <input 
+                type="time" 
+                value={localSettings.focusTimes?.workMorning?.[1] || '12:00'} 
+                onChange={e => setLocalSettings({...localSettings, focusTimes: {...localSettings.focusTimes, workMorning: [localSettings.focusTimes?.workMorning?.[0] || '09:00', e.target.value]}})}
+                className="time-input-small"
+              />
+            </div>
+          </div>
+          
+          <div className="setting-item">
+            <label>Afternoon Focus Time (Work)</label>
+            <div className="time-range-input">
+              <input 
+                type="time" 
+                value={localSettings.focusTimes?.workAfternoon?.[0] || '14:00'} 
+                onChange={e => setLocalSettings({...localSettings, focusTimes: {...localSettings.focusTimes, workAfternoon: [e.target.value, localSettings.focusTimes?.workAfternoon?.[1] || '17:00']}})}
+                className="time-input-small"
+              />
+              <span style={{ color: 'var(--muted)', margin: '0 8px' }}>to</span>
+              <input 
+                type="time" 
+                value={localSettings.focusTimes?.workAfternoon?.[1] || '17:00'} 
+                onChange={e => setLocalSettings({...localSettings, focusTimes: {...localSettings.focusTimes, workAfternoon: [localSettings.focusTimes?.workAfternoon?.[0] || '14:00', e.target.value]}})}
+                className="time-input-small"
+              />
+            </div>
+          </div>
+          
+          <div className="setting-item">
+            <label>Break Between Tasks</label>
+            <div className="setting-input">
+              <input 
+                type="number" 
+                min="0" 
+                max="60" 
+                step="5" 
+                value={localSettings.breakDuration || 15} 
+                onChange={e => setLocalSettings({...localSettings, breakDuration: parseInt(e.target.value) || 15})} 
+              />
+              <span>{localSettings.breakDuration || 15} min</span>
+            </div>
+          </div>
+          
+          <div className="setting-item">
+            <label>Time Slot Increment</label>
+            <div className="setting-input">
+              <select 
+                value={localSettings.timeSlotIncrement || 30} 
+                onChange={e => setLocalSettings({...localSettings, timeSlotIncrement: parseInt(e.target.value)})}
+                style={{ padding: '8px 12px', border: '2px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontFamily: 'inherit', background: 'var(--card)' }}
+              >
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div className="settings-section">
+          <h3>Keyboard Shortcuts</h3>
+          <div className="shortcuts-list">
+            {[['N','New task'],['T','Today'],['C','Calendar'],['A','Analytics'],['S','Settings'],['Esc','Close modal']].map(([key, desc]) => (<div key={key} className="shortcut-row"><span className="key">{key}</span><span>{desc}</span></div>))}
+          </div>
+        </div>
+        
         <button className="save-btn" onClick={handleSave}>Save Settings</button>
         <button className="signout-btn" onClick={onSignOut}>Sign Out</button>
       </div>
@@ -1112,7 +1271,7 @@ export default function DayPlannerApp() {
         .task-time{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin-bottom:6px}.task-time.work{color:var(--work)}.task-time.personal{color:var(--personal)}.task-time .time-icon{font-size:14px}.ai-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;background:linear-gradient(135deg,#667EEA15 0%,#764BA215 100%);border:1px solid #667EEA;color:#667EEA;border-radius:10px;font-size:10px;font-weight:700}.task-group{margin-bottom:24px}.task-group:last-child{margin-bottom:0}.task-group-header{font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
         .repeat-end-section{margin-bottom:20px;padding:16px;background:var(--bg);border-radius:var(--radius-sm)}.repeat-end-section>label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.repeat-end-options{display:flex;flex-direction:column;gap:12px}.radio-option{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border-radius:var(--radius-sm);cursor:pointer;border:2px solid transparent}.radio-option.active{border-color:var(--personal)}.radio-option input[type="radio"]{width:18px;height:18px;accent-color:var(--personal)}.radio-label{font-size:14px;display:flex;align-items:center;gap:8px}.inline-input{width:60px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center}.inline-date{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px}
         .move-modal{max-height:60vh}.move-info{font-size:15px;color:var(--text-secondary);margin-bottom:20px}.quick-dates{display:flex;gap:10px;margin-bottom:20px}.quick-date-btn{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:500;cursor:pointer;color:var(--text-secondary);font-family:inherit;transition:all 0.15s}.quick-date-btn:hover{border-color:var(--personal);background:var(--personal-light);color:var(--personal)}.park-divider{text-align:center;color:var(--muted);font-size:12px;font-weight:600;margin:20px 0;position:relative}.park-divider::before,.park-divider::after{content:'';position:absolute;top:50%;width:calc(50% - 20px);height:1px;background:var(--border)}.park-divider::before{left:0}.park-divider::after{right:0}.park-section-subtle{text-align:center;padding:12px 0}.park-btn-subtle{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.15s}.park-btn-subtle:hover{background:var(--bg);border-color:#8B5CF6;color:#8B5CF6}.park-btn-subtle svg{width:16px;height:16px}.park-description-subtle{font-size:11px;color:var(--muted);margin-top:6px}
-        .modal-content.settings{padding-bottom:calc(32px + env(safe-area-inset-bottom))}.user-info{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg);border-radius:var(--radius);margin-bottom:24px}.user-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.user-avatar-placeholder{width:48px;height:48px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600}.user-name{font-weight:600;font-size:15px}.user-email{font-size:13px;color:var(--muted)}.settings-section{margin-bottom:24px}.settings-section h3{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.setting-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}.setting-item label{font-size:14px}.setting-input{display:flex;align-items:center;gap:10px}.setting-input input{width:80px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;text-align:center}.setting-input span{font-size:13px;color:var(--muted);min-width:50px}.signout-btn{width:100%;padding:14px;background:transparent;color:var(--danger);border:2px solid var(--danger);border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit}
+        .modal-content.settings{padding-bottom:calc(32px + env(safe-area-inset-bottom))}.user-info{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg);border-radius:var(--radius);margin-bottom:24px}.user-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.user-avatar-placeholder{width:48px;height:48px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600}.user-name{font-weight:600;font-size:15px}.user-email{font-size:13px;color:var(--muted)}.settings-section{margin-bottom:24px}.settings-section h3{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.setting-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}.setting-item:last-child{border-bottom:none}.setting-item label{font-size:14px}.setting-input{display:flex;align-items:center;gap:10px}.setting-input input{width:80px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;text-align:center}.setting-input span{font-size:13px;color:var(--muted);min-width:50px}.time-range-input{display:flex;align-items:center;gap:4px}.time-input-small{padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--card);width:90px}.time-input-small:focus{outline:none;border-color:var(--personal)}.signout-btn{width:100%;padding:14px;background:transparent;color:var(--danger);border:2px solid var(--danger);border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit}
         .shortcuts-list{display:flex;flex-direction:column;gap:8px}.shortcut-row{display:flex;align-items:center;gap:12px;padding:8px 0}.shortcut-row .key{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;font-family:monospace;min-width:40px;text-align:center}.shortcut-row span:last-child{font-size:13px;color:var(--text-secondary)}
         .analytics-view{padding:16px 20px}.analytics-card{background:var(--card);padding:20px;border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow-sm)}.analytics-card.highlight{background:linear-gradient(135deg,#D1FAE5 0%,#A7F3D0 100%);text-align:center}.big-number{font-size:48px;font-weight:700;color:var(--personal);display:block}.big-label{font-size:14px;color:#047857;font-weight:500}.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-card{background:var(--card);padding:16px 12px;border-radius:var(--radius);text-align:center;box-shadow:var(--shadow-sm)}.stat-card.positive{background:var(--personal-light)}.stat-card.negative{background:var(--danger-light)}.stat-value{font-size:20px;font-weight:700;display:block}.stat-card.positive .stat-value{color:var(--personal)}.stat-card.negative .stat-value{color:var(--danger)}.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px;display:block;line-height:1.3}.chart-card{background:var(--card);padding:20px;border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow-sm)}.chart-card h3{font-size:15px;font-weight:600;margin-bottom:16px}.bar-chart{display:flex;justify-content:space-between;align-items:flex-end;height:100px}.bar-col{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1}.bar-stack{width:28px;height:80px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:var(--bg)}.bar{width:100%;transition:height 0.4s}.bar.work{background:var(--work)}.bar.personal{background:var(--personal)}.bar-day{font-size:12px;color:var(--muted);font-weight:600}.chart-legend{display:flex;justify-content:center;gap:24px;margin-top:16px;font-size:12px;color:var(--muted)}.chart-legend span{display:flex;align-items:center;gap:6px}.legend-dot{width:10px;height:10px;border-radius:50%}.legend-dot.work{background:var(--work)}.legend-dot.personal{background:var(--personal)}.insight-card{display:flex;align-items:center;gap:14px;background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:var(--shadow-sm)}.insight-icon{font-size:28px}.insight-card p{font-size:14px;color:var(--muted)}.insight-card strong{color:var(--text);font-weight:600}
       `}</style>
