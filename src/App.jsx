@@ -308,11 +308,18 @@ const TaskItem = ({ task, onToggle, onEdit, onDelete, isSelectionMode, isSelecte
         {isSelectionMode && !isDone && <div className={`select-circle ${isSelected ? 'selected' : ''}`}>{isSelected ? '✓' : ''}</div>}
         {isSelectionMode && isDone && <div className="checkbox checked disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></div>}
         <div className="task-content">
+          {task.isScheduled && task.scheduledStartTime && task.scheduledEndTime && (
+            <div className={`task-time ${task.category.toLowerCase()}`}>
+              <span className="time-icon">🕐</span>
+              <span>{formatTimeRange(task.scheduledStartTime, task.scheduledEndTime)}</span>
+            </div>
+          )}
           <span className="task-name">{task.task}</span>
           <div className="task-meta">
             <span className={`category-dot ${task.category.toLowerCase()}`}></span>
             <span className="time-badge">{formatTime(task.timeRequired)}</span>
             {task.repeat && task.repeat !== 'none' && <span className="repeat-badge">🔁</span>}
+            {task.aiScheduled && <span className="ai-badge">✨ AI</span>}
           </div>
         </div>
         {!isSelectionMode && !isTouchDevice && showHoverActions && (
@@ -343,19 +350,52 @@ const SelectionHeader = ({ selectedCount, onCancel, onMove }) => (
   </div>
 );
 
-const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
-  const [formData, setFormData] = useState(task || { task: '', category: 'Work', timeRequired: 30, status: 'Pending', date: selectedDate, repeat: 'none' });
+const TaskModal = ({ task, onSave, onClose, selectedDate, existingTasks = [] }) => {
+  const [formData, setFormData] = useState(task || { 
+    task: '', 
+    category: 'Work', 
+    timeRequired: 30, 
+    status: 'Pending', 
+    date: selectedDate, 
+    repeat: 'none',
+    isScheduled: false,
+    scheduledStartTime: '09:00'
+  });
   const [repeatEndType, setRepeatEndType] = useState('count');
   const [repeatCount, setRepeatCount] = useState(10);
   const [repeatEndDate, setRepeatEndDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return dateToStr(d); });
   const timePresets = [15, 30, 60, 90, 120];
   const repeatOptions = [{ value: 'none', label: 'No repeat' },{ value: 'daily', label: 'Daily' },{ value: 'alternate', label: 'Alternate days' },{ value: 'weekly', label: 'Weekly' },{ value: 'fortnightly', label: 'Fortnightly' },{ value: 'monthly', label: 'Monthly' }];
   
+  // Calculate end time when start time or duration changes
+  const calculatedEndTime = formData.isScheduled && formData.scheduledStartTime 
+    ? calculateEndTime(formData.scheduledStartTime, formData.timeRequired) 
+    : null;
+  
+  // Check for time conflicts
+  const sameDateTasks = existingTasks.filter(t => t.date === formData.date && t.id !== task?.id);
+  const hasConflict = formData.isScheduled && formData.scheduledStartTime && calculatedEndTime
+    ? hasTimeConflict(formData.scheduledStartTime, calculatedEndTime, sameDateTasks)
+    : false;
+  
   const handleSave = () => {
     if (!formData.task.trim()) return;
     let repeatInfo = null;
     if (formData.repeat !== 'none') repeatInfo = { type: repeatEndType, count: repeatEndType === 'count' ? repeatCount : null, endDate: repeatEndType === 'date' ? repeatEndDate : null };
-    onSave({ ...formData, repeatInfo });
+    
+    const taskData = {
+      ...formData,
+      scheduledEndTime: calculatedEndTime,
+      repeatInfo
+    };
+    
+    // Remove scheduling fields if anytime task
+    if (!formData.isScheduled) {
+      taskData.scheduledStartTime = null;
+      taskData.scheduledEndTime = null;
+    }
+    
+    onSave(taskData);
   };
   
   useEffect(() => { const handleKey = (e) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', handleKey); return () => window.removeEventListener('keydown', handleKey); }, [onClose]);
@@ -367,6 +407,52 @@ const TaskModal = ({ task, onSave, onClose, selectedDate }) => {
         <div className="form-group"><label>Task Name</label><input type="text" placeholder="What needs to be done?" value={formData.task} onChange={e => setFormData({...formData, task: e.target.value})} autoFocus /></div>
         <div className="form-group"><label>Category</label><div className="form-row"><button className={`cat-btn ${formData.category === 'Work' ? 'active work' : ''}`} onClick={() => setFormData({...formData, category: 'Work'})}>💼 Work</button><button className={`cat-btn ${formData.category === 'Personal' ? 'active personal' : ''}`} onClick={() => setFormData({...formData, category: 'Personal'})}>🏠 Personal</button></div></div>
         <div className="form-group"><label>Duration</label><div className="time-presets">{timePresets.map(t => (<button key={t} className={`preset-btn ${formData.timeRequired === t ? 'active' : ''}`} onClick={() => setFormData({...formData, timeRequired: t})}>{formatTime(t)}</button>))}</div><div className="slider-row"><input type="range" min="5" max="240" step="5" value={formData.timeRequired} onChange={e => setFormData({...formData, timeRequired: parseInt(e.target.value)})} /><span className="slider-value">{formatTime(formData.timeRequired)}</span></div></div>
+        
+        {/* NEW: Time Scheduling Toggle */}
+        <div className="form-group">
+          <label>Timing</label>
+          <div className="timing-toggle">
+            <button 
+              className={`timing-btn ${!formData.isScheduled ? 'active' : ''}`} 
+              onClick={() => setFormData({...formData, isScheduled: false})}
+            >
+              📋 Anytime
+            </button>
+            <button 
+              className={`timing-btn ${formData.isScheduled ? 'active' : ''}`} 
+              onClick={() => setFormData({...formData, isScheduled: true})}
+            >
+              ⏰ Schedule Time
+            </button>
+          </div>
+        </div>
+        
+        {/* NEW: Time Picker (only shown when scheduled) */}
+        {formData.isScheduled && (
+          <div className="time-picker-section">
+            <div className="form-group">
+              <label>Start Time</label>
+              <input 
+                type="time" 
+                value={formData.scheduledStartTime} 
+                onChange={e => setFormData({...formData, scheduledStartTime: e.target.value})}
+                className="time-input"
+              />
+            </div>
+            {calculatedEndTime && (
+              <div className="calculated-time">
+                <span className="time-icon">→</span>
+                <span className="time-range">{formatTimeRange(formData.scheduledStartTime, calculatedEndTime)}</span>
+              </div>
+            )}
+            {hasConflict && (
+              <div className="conflict-warning">
+                ⚠️ This time overlaps with another scheduled task
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="form-row-2"><div className="form-group"><label>Start Date</label><input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></div><div className="form-group"><label>Repeat</label><select value={formData.repeat} onChange={e => setFormData({...formData, repeat: e.target.value})}>{repeatOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></div></div>
         {formData.repeat !== 'none' && !task && (
           <div className="repeat-end-section"><label>Repeat Until</label><div className="repeat-end-options">
@@ -669,22 +755,76 @@ export default function DayPlannerApp() {
   if (loading) return <LoadingScreen />;
   if (!user) return <LoginScreen onLogin={handleLogin} />;
 
-  const renderTasks = (taskList, showSwipeHint = true) => (
-    <div className="tasks-section">
-      {!isSelectionMode && (
-        <div className="section-header">
-          <h2>Tasks</h2>
-          <div className="section-actions">
-            {taskList.filter(t => t.status !== 'Done').length > 0 && <button className="shift-btn" onClick={enterSelectionMode}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Shift</button>}
-            <span className="task-count">{taskList.filter(t => t.status !== 'Done').length} remaining</span>
+  const renderTasks = (taskList, showSwipeHint = true) => {
+    const scheduledTasks = taskList.filter(t => t.isScheduled && t.scheduledStartTime);
+    const anytimeTasks = taskList.filter(t => !t.isScheduled || !t.scheduledStartTime);
+    
+    return (
+      <div className="tasks-section">
+        {!isSelectionMode && (
+          <div className="section-header">
+            <h2>Tasks</h2>
+            <div className="section-actions">
+              {taskList.filter(t => t.status !== 'Done').length > 0 && <button className="shift-btn" onClick={enterSelectionMode}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Shift</button>}
+              <span className="task-count">{taskList.filter(t => t.status !== 'Done').length} remaining</span>
+            </div>
           </div>
-        </div>
-      )}
-      {taskList.length > 0 && !isSelectionMode && showSwipeHint && !isDesktop && <div className="swipe-hint">← Swipe left for Edit / Delete</div>}
-      {isSelectionMode && <div className="swipe-hint">Tap incomplete tasks to select</div>}
-      {taskList.length === 0 ? <div className="empty-state"><div className="empty-icon">📋</div><p>No tasks</p></div> : taskList.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTask} onEdit={handleEdit} onDelete={handleDelete} isSelectionMode={isSelectionMode} isSelected={selectedTasks.includes(task.id)} onSelect={handleSelectTask} isDesktop={isDesktop} isTouchDevice={isTouchDevice} onSchedule={handleScheduleTask} />)}
-    </div>
-  );
+        )}
+        {taskList.length > 0 && !isSelectionMode && showSwipeHint && !isDesktop && <div className="swipe-hint">← Swipe left for Edit / Delete</div>}
+        {isSelectionMode && <div className="swipe-hint">Tap incomplete tasks to select</div>}
+        
+        {taskList.length === 0 ? (
+          <div className="empty-state"><div className="empty-icon">📋</div><p>No tasks</p></div>
+        ) : (
+          <>
+            {/* Scheduled Tasks Section */}
+            {scheduledTasks.length > 0 && (
+              <div className="task-group">
+                {!isSelectionMode && <div className="task-group-header">⏰ Scheduled ({scheduledTasks.length})</div>}
+                {scheduledTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={toggleTask} 
+                    onEdit={handleEdit} 
+                    onDelete={handleDelete} 
+                    isSelectionMode={isSelectionMode} 
+                    isSelected={selectedTasks.includes(task.id)} 
+                    onSelect={handleSelectTask} 
+                    isDesktop={isDesktop} 
+                    isTouchDevice={isTouchDevice} 
+                    onSchedule={handleScheduleTask} 
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Anytime Tasks Section */}
+            {anytimeTasks.length > 0 && (
+              <div className="task-group">
+                {!isSelectionMode && <div className="task-group-header">📋 Anytime ({anytimeTasks.length})</div>}
+                {anytimeTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={toggleTask} 
+                    onEdit={handleEdit} 
+                    onDelete={handleDelete} 
+                    isSelectionMode={isSelectionMode} 
+                    isSelected={selectedTasks.includes(task.id)} 
+                    onSelect={handleSelectTask} 
+                    isDesktop={isDesktop} 
+                    isTouchDevice={isTouchDevice} 
+                    onSchedule={handleScheduleTask} 
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -715,7 +855,8 @@ export default function DayPlannerApp() {
         .mini-calendar{background:var(--bg);border-radius:var(--radius);padding:16px;margin-bottom:20px}.mini-cal-header{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center}.mini-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px}.mini-cal-weekdays div{text-align:center;font-size:10px;font-weight:600;color:var(--muted)}.mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.mini-cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;cursor:pointer}.mini-cal-day.empty{cursor:default}.mini-cal-day.today{background:var(--personal-light);font-weight:600}.mini-cal-day.selected{background:var(--personal);color:white}.mini-cal-day.has-tasks{font-weight:600}.mini-cal-day:not(.empty):hover{background:var(--border)}.mini-cal-day.selected:hover{background:var(--personal)}
         .panel-title{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px}.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border)}.panel-header h3{font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1px}.bulk-shift-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;font-family:inherit;transition:all 0.15s}.bulk-shift-btn:hover{background:var(--personal-light);border-color:var(--personal);color:var(--personal)}.bulk-shift-btn.active{background:var(--personal);border-color:var(--personal);color:white}.bulk-shift-btn svg{width:14px;height:14px}.panel-selection-actions{display:flex;gap:8px;padding:12px;background:var(--blue-light);border-radius:var(--radius-sm);margin-bottom:16px;align-items:center}.panel-selection-count{flex:1;font-size:13px;font-weight:600;color:var(--blue)}.panel-selection-btn{padding:6px 12px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.panel-selection-btn.move{background:var(--blue);color:white}.panel-tasks{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}.panel-task-item{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--border);position:relative;transition:all 0.15s}.panel-task-item.work{border-left-color:var(--work)}.panel-task-item.personal{border-left-color:var(--personal)}.panel-task-item.done{opacity:0.5}.panel-task-item.panel-selectable{cursor:pointer}.panel-task-item.panel-selectable:hover{background:var(--blue-light)}.panel-task-item.panel-selected{background:var(--blue-light);border-left-color:var(--blue)}.panel-select-checkbox{width:20px;height:20px;min-width:20px;border-radius:4px;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}.panel-select-checkbox svg{width:12px;height:12px;stroke:white}.panel-select-checkbox.checked{background:var(--blue);border-color:var(--blue)}.panel-task-name{font-size:13px;font-weight:500;flex:1;word-wrap:break-word}.panel-task-time{font-size:11px;color:var(--muted)}.panel-task-actions{display:flex;gap:4px;margin-left:8px}.panel-action-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all 0.15s}.panel-action-btn svg{width:14px;height:14px;color:var(--muted);stroke:var(--muted)}.panel-action-btn:hover{background:var(--bg)}.panel-action-btn.shift:hover{border-color:var(--personal);background:var(--personal-light)}.panel-action-btn.shift:hover svg{color:var(--personal);stroke:var(--personal)}.panel-action-btn.edit:hover{border-color:var(--blue);background:var(--blue-light)}.panel-action-btn.edit:hover svg{color:var(--blue);stroke:var(--blue)}.panel-action-btn.delete:hover{border-color:var(--danger);background:var(--danger-light)}.panel-action-btn.delete:hover svg{color:var(--danger);stroke:var(--danger)}.show-more-btn{text-align:center;padding:8px;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;border-radius:6px}.show-more-btn:hover{background:var(--blue-light);color:var(--personal)}
         .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:70px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}@media(min-width:481px)and(max-width:1023px){.bottom-nav{left:50%;transform:translateX(-50%);max-width:480px;border-radius:20px 20px 0 0}}.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit}.nav-item.active{color:var(--personal)}.nav-item.parked{color:var(--muted)}.nav-item.parked.active{color:#8B5CF6}.nav-item svg{width:22px;height:22px}.nav-item span{font-size:11px;font-weight:600}
-        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;z-index:1000;animation:fadeIn 0.2s}@keyframes fadeIn{from{opacity:0}to{opacity:1}}.modal-content{background:var(--card);border-radius:24px 24px 0 0;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s}@media(min-width:1024px){.modal-overlay{align-items:center}.modal-content{border-radius:24px;max-width:440px}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.modal-header h2{font-size:20px;font-weight:700}.close-btn{width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.close-btn::before{content:"✕";font-size:16px;font-weight:500;color:var(--muted);line-height:1}.close-btn:active{background:var(--border)}.form-group{margin-bottom:20px}.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px}.form-group input[type="text"],.form-group input[type="date"],.form-group input[type="number"],.form-group select{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;background:var(--card);color:var(--text)}.form-group input::placeholder{color:var(--muted)}.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--personal)}.form-row{display:flex;gap:12px}.form-row-2{display:flex;gap:12px}.form-row-2 .form-group{flex:1;margin-bottom:0}.cat-btn{flex:1;padding:14px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.cat-btn.active.work{border-color:var(--work);background:var(--work-light);color:#B45309}.cat-btn.active.personal{border-color:var(--personal);background:var(--personal-light);color:#047857}.time-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.preset-btn{padding:10px 16px;border:2px solid var(--border);border-radius:20px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.preset-btn.active{background:var(--text);color:white;border-color:var(--text)}.slider-row{display:flex;align-items:center;gap:14px}.slider-row input[type="range"]{flex:1;height:6px;-webkit-appearance:none;background:var(--border);border-radius:3px}.slider-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--text);border-radius:50%;cursor:pointer}.slider-value{font-size:14px;font-weight:600;min-width:55px;text-align:right}.save-btn{width:100%;padding:16px;background:var(--personal);color:white;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;z-index:1000;animation:fadeIn 0.2s}@keyframes fadeIn{from{opacity:0}to{opacity:1}}.modal-content{background:var(--card);border-radius:24px 24px 0 0;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s}@media(min-width:1024px){.modal-overlay{align-items:center}.modal-content{border-radius:24px;max-width:440px}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.modal-header h2{font-size:20px;font-weight:700}.close-btn{width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.close-btn::before{content:"✕";font-size:16px;font-weight:500;color:var(--muted);line-height:1}.close-btn:active{background:var(--border)}.form-group{margin-bottom:20px}.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px}.form-group input[type="text"],.form-group input[type="date"],.form-group input[type="number"],.form-group input[type="time"],.form-group select{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;background:var(--card);color:var(--text)}.form-group input::placeholder{color:var(--muted)}.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--personal)}.form-row{display:flex;gap:12px}.form-row-2{display:flex;gap:12px}.form-row-2 .form-group{flex:1;margin-bottom:0}.cat-btn{flex:1;padding:14px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.cat-btn.active.work{border-color:var(--work);background:var(--work-light);color:#B45309}.cat-btn.active.personal{border-color:var(--personal);background:var(--personal-light);color:#047857}.time-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.preset-btn{padding:10px 16px;border:2px solid var(--border);border-radius:20px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit}.preset-btn.active{background:var(--text);color:white;border-color:var(--text)}.slider-row{display:flex;align-items:center;gap:14px}.slider-row input[type="range"]{flex:1;height:6px;-webkit-appearance:none;background:var(--border);border-radius:3px}.slider-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--text);border-radius:50%;cursor:pointer}.slider-value{font-size:14px;font-weight:600;min-width:55px;text-align:right}.timing-toggle{display:flex;gap:8px}.timing-btn{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-secondary);font-family:inherit;transition:all 0.2s}.timing-btn.active{border-color:var(--personal);background:var(--personal-light);color:#047857}.time-picker-section{background:var(--bg);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px}.time-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;background:var(--card);color:var(--text)}.time-input:focus{outline:none;border-color:var(--personal)}.calculated-time{display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:var(--card);border-radius:var(--radius-sm);font-size:14px;color:var(--text-secondary)}.time-icon{font-size:16px}.time-range{font-weight:600;color:var(--personal)}.conflict-warning{margin-top:12px;padding:12px;background:#FEE2E2;border:1px solid #EF4444;border-radius:var(--radius-sm);color:#DC2626;font-size:13px;font-weight:600}.save-btn{width:100%;padding:16px;background:var(--personal);color:white;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+        .task-time{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin-bottom:6px}.task-time.work{color:var(--work)}.task-time.personal{color:var(--personal)}.task-time .time-icon{font-size:14px}.ai-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;background:linear-gradient(135deg,#667EEA15 0%,#764BA215 100%);border:1px solid #667EEA;color:#667EEA;border-radius:10px;font-size:10px;font-weight:700}.task-group{margin-bottom:24px}.task-group:last-child{margin-bottom:0}.task-group-header{font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
         .repeat-end-section{margin-bottom:20px;padding:16px;background:var(--bg);border-radius:var(--radius-sm)}.repeat-end-section>label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.repeat-end-options{display:flex;flex-direction:column;gap:12px}.radio-option{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border-radius:var(--radius-sm);cursor:pointer;border:2px solid transparent}.radio-option.active{border-color:var(--personal)}.radio-option input[type="radio"]{width:18px;height:18px;accent-color:var(--personal)}.radio-label{font-size:14px;display:flex;align-items:center;gap:8px}.inline-input{width:60px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center}.inline-date{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px}
         .move-modal{max-height:60vh}.move-info{font-size:15px;color:var(--text-secondary);margin-bottom:20px}.quick-dates{display:flex;gap:10px;margin-bottom:20px}.quick-date-btn{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:14px;font-weight:500;cursor:pointer;color:var(--text-secondary);font-family:inherit;transition:all 0.15s}.quick-date-btn:hover{border-color:var(--personal);background:var(--personal-light);color:var(--personal)}.park-divider{text-align:center;color:var(--muted);font-size:12px;font-weight:600;margin:20px 0;position:relative}.park-divider::before,.park-divider::after{content:'';position:absolute;top:50%;width:calc(50% - 20px);height:1px;background:var(--border)}.park-divider::before{left:0}.park-divider::after{right:0}.park-section-subtle{text-align:center;padding:12px 0}.park-btn-subtle{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.15s}.park-btn-subtle:hover{background:var(--bg);border-color:#8B5CF6;color:#8B5CF6}.park-btn-subtle svg{width:16px;height:16px}.park-description-subtle{font-size:11px;color:var(--muted);margin-top:6px}
         .modal-content.settings{padding-bottom:calc(32px + env(safe-area-inset-bottom))}.user-info{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg);border-radius:var(--radius);margin-bottom:24px}.user-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.user-avatar-placeholder{width:48px;height:48px;border-radius:50%;background:var(--personal);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600}.user-name{font-weight:600;font-size:15px}.user-email{font-size:13px;color:var(--muted)}.settings-section{margin-bottom:24px}.settings-section h3{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px}.setting-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}.setting-item label{font-size:14px}.setting-input{display:flex;align-items:center;gap:10px}.setting-input input{width:80px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;text-align:center}.setting-input span{font-size:13px;color:var(--muted);min-width:50px}.signout-btn{width:100%;padding:14px;background:transparent;color:var(--danger);border:2px solid var(--danger);border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit}
@@ -919,7 +1060,7 @@ export default function DayPlannerApp() {
           )}
         </div>
       )}
-      {showModal && <TaskModal task={editingTask} onSave={handleSave} onClose={() => { setShowModal(false); setEditingTask(null); }} selectedDate={activeTab === 'calendar' ? selectedDate : activeTab === 'parked' ? today : selectedDate} />}
+      {showModal && <TaskModal task={editingTask} onSave={handleSave} onClose={() => { setShowModal(false); setEditingTask(null); }} selectedDate={activeTab === 'calendar' ? selectedDate : activeTab === 'parked' ? today : selectedDate} existingTasks={tasks} />}
       {showMoveModal && <MoveModal onClose={() => setShowMoveModal(false)} onMove={handleMove} onPark={handlePark} selectedCount={selectedTasks.length} targetDate={activeTab === 'calendar' ? selectedDate : today} />}
       {showScheduleModal && taskToSchedule && <MoveModal onClose={() => { setShowScheduleModal(false); setTaskToSchedule(null); }} onMove={handleScheduleConfirm} onPark={() => { setShowScheduleModal(false); setTaskToSchedule(null); }} selectedCount={1} targetDate={today} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} tasks={tasks} user={user} onSignOut={handleSignOut} settings={settings} onUpdateSettings={handleUpdateSettings} />}
